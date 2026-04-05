@@ -1,7 +1,7 @@
 extends Area2D
 class_name Wagon
 
-enum State { IDLE, ASSIGNED, BLOCKED }
+enum State { IDLE, BLOCKED }
 
 const WAGON_COLORS := {
 	"red":    Color(0.85, 0.25, 0.25),
@@ -17,7 +17,6 @@ const _HALF_H := 31.0
 @export var wagon_color: String = "red"
 
 var state: State = State.IDLE
-var assigned_track: int = -1
 
 @onready var _shadow: ColorRect = $Shadow
 @onready var _body: ColorRect = $Body
@@ -31,16 +30,6 @@ func _ready() -> void:
 	_refresh()
 
 # --- Публічний API ---
-
-func assign(track_index: int) -> void:
-	assigned_track = track_index
-	state = State.ASSIGNED
-	_refresh()
-
-func deassign() -> void:
-	assigned_track = -1
-	state = State.IDLE
-	_refresh()
 
 func start_blocking() -> void:
 	state = State.BLOCKED
@@ -66,8 +55,5 @@ func _refresh() -> void:
 		State.IDLE:
 			_shadow.visible = false
 			_label.text = ""
-		State.ASSIGNED:
-			_shadow.visible = false
-			_label.text = str(assigned_track)
 		State.BLOCKED:
 			_label.text = "!"

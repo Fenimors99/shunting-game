@@ -1,12 +1,10 @@
 extends Node2D
 class_name WagonQueue
 
-const WAGON_SCENE := preload("res://scenes/Wagon.tscn")
-
-const QUEUE_LIMIT    := 10
-const SPAWN_INTERVAL := 3.0
-const QUEUE_SPEED    := 80.0   # px/сек
-const WAGON_GAP      := 150.0  # відстань між вагонами
+const WAGON_SCENE  := preload("res://scenes/Wagon.tscn")
+const WAGON_COUNT  := 50
+const QUEUE_SPEED  := 80.0   # px/сек
+const WAGON_GAP    := 150.0  # відстань між вагонами
 
 signal wagon_entered_track(wagon: Wagon, track_index: int)
 signal queue_blocked(wagon: Wagon)
@@ -15,12 +13,11 @@ signal queue_unblocked()
 var _wagons: Array[Wagon] = []
 var _blocked: bool = false
 var _running: bool = false
-var _spawn_timer: float = 0.0
 
 const _COLORS := ["red", "blue", "green", "yellow", "purple"]
 
 func _ready() -> void:
-	for i in 5:
+	for i in WAGON_COUNT:
 		_spawn_wagon()
 
 func start() -> void:
@@ -31,7 +28,6 @@ func _process(delta: float) -> void:
 		return
 	_move_wagons(delta)
 	_check_front_wagon()
-	_tick_spawn(delta)
 
 # --- Рух ---
 
@@ -45,16 +41,12 @@ func _check_front_wagon() -> void:
 	var front: Wagon = _wagons[0]
 	if front.position.x > Layout.JUNCTION_X:
 		return
-	if front.assigned_track == -1:
-		_block(front)
-	else:
-		_dispatch(front)
+	_block(front)
 
-func _dispatch(wagon: Wagon) -> void:
+func _dispatch(wagon: Wagon, track_index: int) -> void:
 	_wagons.remove_at(0)
 	wagon.reparent(get_parent(), true)
-	wagon_entered_track.emit(wagon, wagon.assigned_track)
-	_spawn_timer = 0.0
+	wagon_entered_track.emit(wagon, track_index)
 
 func _block(wagon: Wagon) -> void:
 	_blocked = true
@@ -63,25 +55,11 @@ func _block(wagon: Wagon) -> void:
 
 # --- Спавн ---
 
-func _tick_spawn(delta: float) -> void:
-	if _wagons.size() >= QUEUE_LIMIT:
-		return
-	_spawn_timer += delta
-	if _spawn_timer >= SPAWN_INTERVAL:
-		_spawn_timer = 0.0
-		_do_spawn()
-
-func _do_spawn() -> void:
-	_spawn_wagon()
-
 func _spawn_wagon() -> void:
 	var w: Wagon = WAGON_SCENE.instantiate()
 	w.wagon_color = _COLORS[randi() % _COLORS.size()]
-	var spawn_x: float
-	if _wagons.is_empty():
-		spawn_x = Layout.QUEUE_START_X
-	else:
-		spawn_x = _wagons.back().position.x + WAGON_GAP
+	var spawn_x: float = Layout.QUEUE_START_X if _wagons.is_empty() \
+		else _wagons.back().position.x + WAGON_GAP
 	w.position = Vector2(spawn_x, 0.0)
 	add_child(w)
 	_wagons.append(w)
@@ -93,10 +71,9 @@ func resolve_block(track_index: int) -> void:
 		return
 	var front: Wagon = _wagons[0]
 	front.stop_blocking()
-	front.assign(track_index)
 	_blocked = false
 	queue_unblocked.emit()
-	_dispatch(front)
+	_dispatch(front, track_index)
 
 func is_blocked() -> bool:
 	return _blocked
