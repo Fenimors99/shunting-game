@@ -2,10 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/Wagon.gd" id="1_wagon"]
 
-[sub_resource type="RectangleShape2D" id="1_shape"]
-size = Vector2(100, 62)
-
-[node name="Wagon" type="Area2D"]
+[node name="Wagon" type="Node2D"]
 script = ExtResource("1_wagon")
 
 [node name="Shadow" type="ColorRect" parent="."]
@@ -30,9 +27,6 @@ offset_right = 50.0
 offset_bottom = 16.0
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("1_shape")
 
 [node name="BlinkTimer" type="Timer" parent="."]
 wait_time = 0.4

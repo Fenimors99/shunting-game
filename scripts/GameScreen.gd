@@ -17,9 +17,10 @@ func _create_start_button() -> void:
 	var btn := Button.new()
 	btn.text = "СТАРТ"
 	btn.custom_minimum_size = Vector2(200, 64)
+	var vp := get_viewport_rect().size
 	btn.position = Vector2(
-		(1920 - 200) / 2.0,
-		Layout.QUEUE_Y + 50
+		(vp.x - 200) / 2.0,
+		Layout.QUEUE_Y - 82
 	)
 
 	var style := StyleBoxFlat.new()

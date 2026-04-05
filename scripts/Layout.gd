@@ -1,5 +1,9 @@
 class_name Layout
 
+# Базовий розмір viewport (відповідає project.godot)
+const SCREEN_W := 1920.0
+const SCREEN_H := 1080.0
+
 # Точка розвороту черги (X де вагон має бути призначений або заблокує)
 const JUNCTION_X    := 240.0
 # Y-позиція вузла Queue в GameScreen

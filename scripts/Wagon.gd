@@ -1,4 +1,4 @@
-extends Area2D
+extends Node2D
 class_name Wagon
 
 enum State { IDLE, BLOCKED }
@@ -10,9 +10,6 @@ const WAGON_COLORS := {
 	"yellow": Color(0.95, 0.80, 0.15),
 	"purple": Color(0.65, 0.25, 0.85),
 }
-
-const _HALF_W := 50.0
-const _HALF_H := 31.0
 
 @export var wagon_color: String = "red"
 
