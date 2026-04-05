@@ -7,7 +7,6 @@ const QUEUE_LIMIT    := 10
 const SPAWN_INTERVAL := 3.0
 const QUEUE_SPEED    := 80.0   # px/сек
 const WAGON_GAP      := 100.0  # відстань між вагонами
-const ENTRY_X        := 160.0  # X де вагон має бути призначений або заблокує
 
 signal wagon_entered_track(wagon: Wagon, track_index: int)
 signal queue_blocked(wagon: Wagon)
@@ -43,7 +42,7 @@ func _check_front_wagon() -> void:
 	if _wagons.is_empty():
 		return
 	var front: Wagon = _wagons[0]
-	if front.position.x > ENTRY_X:
+	if front.position.x > Layout.JUNCTION_X:
 		return
 	if front.assigned_track == -1:
 		_block(front)
@@ -87,7 +86,7 @@ func _spawn_wagon(index: int) -> void:
 	var w: Wagon = WAGON_SCENE.instantiate()
 	w.wagon_color = _COLORS[randi() % _COLORS.size()]
 	# Позиція: правіше від останнього вагона
-	w.position = Vector2(ENTRY_X + (index + 1) * WAGON_GAP + 80.0, 0.0)
+	w.position = Vector2(Layout.JUNCTION_X + (index + 1) * WAGON_GAP + 80.0, 0.0)
 	w.tapped.connect(_on_wagon_tapped)
 	add_child(w)
 	_wagons.append(w)

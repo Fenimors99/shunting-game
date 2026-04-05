@@ -1,10 +1,6 @@
 extends Node2D
 
-# Константи маршруту (мають збігатися з Queue.gd і Station.gd)
-const QUEUE_Y      := 620.0
-const JUNCTION_X   := 160.0
-const STATION_LEFT := 380.0
-const ANIM_SPEED   := 220.0   # px/сек
+const ANIM_SPEED := 220.0   # px/сек
 
 @onready var queue:   WagonQueue = $Queue
 @onready var station: Node2D    = $Station
@@ -34,9 +30,9 @@ func _on_track_entry_tapped(track_index: int) -> void:
 # --- Анімація вагона: черга → поворот вгору → поворот вправо → колія ---
 
 func _on_wagon_entered_track(wagon: Wagon, track_index: int) -> void:
-	var target_y: float  = station.get_track_y(track_index)
-	var up_time: float   = abs(QUEUE_Y - target_y) / ANIM_SPEED
-	var right_time: float = abs(STATION_LEFT - JUNCTION_X) / ANIM_SPEED
+	var target_y: float   = station.get_track_y(track_index)
+	var up_time: float    = abs(Layout.QUEUE_Y - target_y) / ANIM_SPEED
+	var right_time: float = abs(Layout.STATION_LEFT - Layout.JUNCTION_X) / ANIM_SPEED
 
 	var tween := create_tween()
 	tween.set_trans(Tween.TRANS_SINE)
@@ -45,7 +41,7 @@ func _on_wagon_entered_track(wagon: Wagon, track_index: int) -> void:
 	# 1. Рухається вгору до потрібної колії
 	tween.tween_property(wagon, "position:y", target_y, up_time)
 	# 2. Рухається вправо до входу на станцію
-	tween.tween_property(wagon, "position:x", STATION_LEFT + 20, right_time)
+	tween.tween_property(wagon, "position:x", Layout.STATION_LEFT + 20, right_time)
 	# 3. Вагон на місці — припинити анімацію
 	tween.tween_callback(func(): _wagon_arrived(wagon, track_index))
 
