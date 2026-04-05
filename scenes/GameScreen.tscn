@@ -8,7 +8,7 @@
 script = ExtResource("1_gj13t")
 
 [node name="Queue" type="Node2D" parent="." unique_id=975231881]
-position = Vector2(0, 620)
+position = Vector2(0, 0)
 script = ExtResource("1_o75v1")
 
 [node name="Station" type="Node2D" parent="." unique_id=349112496]

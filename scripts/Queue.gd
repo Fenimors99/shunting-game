@@ -6,7 +6,7 @@ const WAGON_SCENE := preload("res://scenes/Wagon.tscn")
 const QUEUE_LIMIT    := 10
 const SPAWN_INTERVAL := 3.0
 const QUEUE_SPEED    := 80.0   # px/сек
-const WAGON_GAP      := 100.0  # відстань між вагонами
+const WAGON_GAP      := 150.0  # відстань між вагонами
 
 signal wagon_entered_track(wagon: Wagon, track_index: int)
 signal queue_blocked(wagon: Wagon)
@@ -15,6 +15,7 @@ signal queue_unblocked()
 var _wagons: Array[Wagon] = []
 var _selected: Wagon = null
 var _blocked: bool = false
+var _running: bool = false
 var _spawn_timer: float = 0.0
 
 const _COLORS := ["red", "blue", "green", "yellow", "purple"]
@@ -24,8 +25,11 @@ func _ready() -> void:
 	for i in 5:
 		_spawn_wagon(i)
 
+func start() -> void:
+	_running = true
+
 func _process(delta: float) -> void:
-	if _blocked:
+	if not _running or _blocked:
 		return
 	_move_wagons(delta)
 	_check_front_wagon()

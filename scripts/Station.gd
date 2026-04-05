@@ -40,13 +40,13 @@ func _draw_tracks() -> void:
 			color = COLOR_TRACK_CARGO
 		elif i == 6:
 			color = COLOR_TRACK_REPAIR
-		draw_line(Vector2(Layout.STATION_LEFT, y), Vector2(Layout.STATION_RIGHT, y), color, 2.0)
+		draw_line(Vector2(Layout.STATION_LEFT, y), Vector2(Layout.STATION_RIGHT, y), color, 3.0)
 
 		draw_string(
 			ThemeDB.fallback_font,
-			Vector2(Layout.STATION_LEFT + 10, y - 8),
+			Vector2(Layout.STATION_LEFT + 14, y - 10),
 			labels[i],
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 13,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 18,
 			Color(0.6, 0.7, 0.85, 0.7)
 		)
 
@@ -61,8 +61,8 @@ func _create_entry_buttons() -> void:
 		var y := Layout.get_track_y(i)
 		var btn := Button.new()
 		btn.text = "+"
-		btn.custom_minimum_size = Vector2(36, 36)
-		btn.position = Vector2(Layout.STATION_LEFT - 52, y - 18)
+		btn.custom_minimum_size = Vector2(52, 52)
+		btn.position = Vector2(Layout.STATION_LEFT - 72, y - 26)
 		btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.1, 0.3, 0.7, 0.9)))
 		btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.2, 0.5, 1.0)))
 		btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.05, 0.2, 0.6)))
@@ -77,5 +77,5 @@ func _make_circle_style(color: Color) -> StyleBoxFlat:
 	s.bg_color = color
 	s.border_color = Color(0.3, 0.6, 1.0)
 	s.set_border_width_all(2)
-	s.set_corner_radius_all(18)
+	s.set_corner_radius_all(26)
 	return s
