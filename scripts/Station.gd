@@ -9,8 +9,29 @@ const COLOR_BORDER        := Color(0.3, 0.4, 0.55, 0.5)
 
 signal track_entry_tapped(track_index: int)
 
+var _track_wagons: Array = []   # Array[Array[Wagon]]
+var _entry_buttons: Array = []  # Array[Button]
+
 func _ready() -> void:
+	_track_wagons.resize(Layout.TRACK_COUNT)
+	for i in Layout.TRACK_COUNT:
+		_track_wagons[i] = []
 	_create_entry_buttons()
+
+# --- Публічний API ---
+
+func get_next_slot(track_index: int) -> int:
+	return _track_wagons[track_index - 1].size()
+
+func place_wagon(wagon: Wagon, track_index: int) -> void:
+	var idx := track_index - 1
+	var slot: int = _track_wagons[idx].size()
+	_track_wagons[idx].append(wagon)
+	wagon.position = Vector2(Layout.get_slot_x(slot), get_track_y(track_index))
+	_refresh_button(track_index)
+
+func is_track_full(track_index: int) -> bool:
+	return _track_wagons[track_index - 1].size() >= Layout.get_track_capacity(track_index)
 
 func get_track_y(track_index: int) -> float:
 	return Layout.get_track_y(track_index)
@@ -75,6 +96,14 @@ func _create_entry_buttons() -> void:
 		var idx := i
 		btn.pressed.connect(func(): track_entry_tapped.emit(idx))
 		add_child(btn)
+		_entry_buttons.append(btn)
+
+func _refresh_button(track_index: int) -> void:
+	var btn: Button = _entry_buttons[track_index - 1]
+	if is_track_full(track_index):
+		btn.text = ""
+		btn.disabled = true
+		btn.add_theme_stylebox_override("disabled", _make_circle_style(Color(0.3, 0.15, 0.15, 0.6)))
 
 func _make_circle_style(color: Color) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()

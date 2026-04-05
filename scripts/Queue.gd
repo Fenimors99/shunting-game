@@ -3,7 +3,6 @@ class_name WagonQueue
 
 const WAGON_SCENE  := preload("res://scenes/Wagon.tscn")
 const WAGON_COUNT  := 50
-const QUEUE_SPEED  := 80.0   # px/сек
 const WAGON_GAP    := 150.0  # відстань між вагонами
 
 signal wagon_entered_track(wagon: Wagon, track_index: int)
@@ -33,7 +32,7 @@ func _process(delta: float) -> void:
 
 func _move_wagons(delta: float) -> void:
 	for w in _wagons:
-		w.position.x -= QUEUE_SPEED * delta
+		w.position.x -= Layout.SPEED * delta
 
 func _check_front_wagon() -> void:
 	if _wagons.is_empty():
