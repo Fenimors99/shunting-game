@@ -1,7 +1,8 @@
 extends Node2D
 
-@onready var queue:   WagonQueue = $Queue
-@onready var station: Node2D    = $Station
+@onready var queue:      WagonQueue = $Queue
+@onready var station:    Node2D    = $Station
+@onready var loco_depot: LocoDepot = $LocoDepot
 
 func _ready() -> void:
 	queue.position.y = Layout.QUEUE_Y
@@ -9,6 +10,9 @@ func _ready() -> void:
 	queue.queue_blocked.connect(_on_queue_blocked)
 	queue.queue_unblocked.connect(_on_queue_unblocked)
 	station.track_entry_tapped.connect(_on_track_entry_tapped)
+	station.track_exit_tapped.connect(_on_track_exit_tapped)
+	station.track_exit_choice.connect(_on_track_exit_choice)
+	loco_depot.availability_changed.connect(station.set_loco_available)
 	_create_start_button()
 
 func _create_start_button() -> void:
@@ -46,17 +50,29 @@ func _on_start_pressed(btn: Button) -> void:
 
 # --- Сигнали черги ---
 
-func _on_queue_blocked(_wagon: Wagon) -> void:
-	print("Черга заблокована — призначте вагон")
+func _on_queue_blocked(wagon: Wagon) -> void:
+	station.set_entry_filter(wagon.wagon_type)
 
 func _on_queue_unblocked() -> void:
-	print("Черга розблокована")
+	station.clear_entry_filter()
 
 # --- Тап на кружечок входу колії ---
 
 func _on_track_entry_tapped(track_index: int) -> void:
-	if queue.is_blocked() and not station.is_track_full(track_index):
-		queue.resolve_block(track_index)
+	if not queue.is_blocked():
+		return
+	if station.is_track_full(track_index):
+		return
+	var wagon := queue.get_front_wagon()
+	if wagon and not _wagon_fits_track(wagon, track_index):
+		return
+	queue.resolve_block(track_index)
+
+func _wagon_fits_track(wagon: Wagon, track_index: int) -> bool:
+	match wagon.wagon_type:
+		Wagon.WagonType.BROKEN: return track_index == 7
+		Wagon.WagonType.CARGO:  return track_index == 1
+		_: return track_index != 1 and track_index != 7
 
 # --- Анімація вагона: черга → поворот вгору → поворот вправо → колія ---
 
@@ -77,3 +93,44 @@ func _on_wagon_entered_track(wagon: Wagon, track_index: int) -> void:
 
 func _wagon_arrived(wagon: Wagon, track_index: int, slot: int) -> void:
 	station.place_wagon(wagon, track_index, slot)
+
+# --- Виїзд з колії ---
+
+func _on_track_exit_tapped(track_index: int) -> void:
+	if not loco_depot.use_locomotive():
+		return
+	var wagons: Array = station.pop_all_wagons(track_index)
+	match track_index:
+		1: _animate_exit(wagons, Layout.EXIT_LOADING_POS)
+		7: _animate_exit(wagons, Layout.EXIT_REPAIR_POS)
+
+func _on_track_exit_choice(track_index: int, submit: bool) -> void:
+	if not loco_depot.use_locomotive():
+		return
+	var wagons: Array = station.pop_all_wagons(track_index)
+	if submit:
+		_animate_exit(wagons, Layout.EXIT_SUBMIT_POS)
+	else:
+		_return_to_queue(wagons)
+
+# wagons виїжджають правіше, потім зникають за екраном
+func _animate_exit(wagons: Array, dest: Vector2) -> void:
+	for i in wagons.size():
+		var wagon: Wagon = wagons[i]
+		var delay := i * 0.12
+		var dist := wagon.position.distance_to(dest)
+		var tween := create_tween()
+		tween.tween_interval(delay)
+		tween.tween_property(wagon, "position", dest, dist / Layout.SPEED)
+		tween.tween_callback(wagon.queue_free)
+
+# wagons повертаються в хвіст черги
+func _return_to_queue(wagons: Array) -> void:
+	var base_x := queue.get_tail_global_x() + Layout.WAGON_GAP
+	for i in wagons.size():
+		var wagon: Wagon = wagons[i]
+		var dest := Vector2(base_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y)
+		var dist := wagon.position.distance_to(dest)
+		var tween := create_tween()
+		tween.tween_property(wagon, "position", dest, dist / Layout.SPEED)
+		tween.tween_callback(func(): queue.receive_wagon(wagon))

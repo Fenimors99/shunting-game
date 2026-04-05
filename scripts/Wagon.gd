@@ -1,29 +1,27 @@
 extends Node2D
 class_name Wagon
 
-enum State { IDLE, BLOCKED }
+enum State    { IDLE, BLOCKED }
+enum WagonType { NORMAL, BROKEN, CARGO }
 
-const WAGON_COLORS := {
-	"red":    Color(0.85, 0.25, 0.25),
-	"blue":   Color(0.25, 0.50, 0.90),
-	"green":  Color(0.20, 0.75, 0.35),
-	"yellow": Color(0.95, 0.80, 0.15),
-	"purple": Color(0.65, 0.25, 0.85),
-}
+const NORMAL_COLORS := [
+	Color(0.25, 0.50, 0.90),  # blue
+	Color(0.20, 0.75, 0.35),  # green
+	Color(0.95, 0.80, 0.15),  # yellow
+	Color(0.65, 0.25, 0.85),  # purple
+]
 
-@export var wagon_color: String = "red"
+@export var wagon_type: WagonType = WagonType.NORMAL
+var _normal_color: Color = NORMAL_COLORS[0]
 
 var state: State = State.IDLE
 
 @onready var _shadow: ColorRect = $Shadow
 @onready var _body: ColorRect = $Body
-@onready var _label: Label = $Label
 @onready var _blink_timer: Timer = $BlinkTimer
 
 func _ready() -> void:
 	_blink_timer.timeout.connect(_on_blink_timeout)
-	_label.add_theme_color_override("font_color", Color.WHITE)
-	_label.add_theme_font_size_override("font_size", 22)
 	_refresh()
 
 # --- Публічний API ---
@@ -46,11 +44,12 @@ func _on_blink_timeout() -> void:
 	_shadow.visible = !_shadow.visible
 
 func _refresh() -> void:
-	_body.color = WAGON_COLORS.get(wagon_color, Color.GRAY)
-	_body.modulate = Color.WHITE
+	match wagon_type:
+		WagonType.BROKEN: _body.color = Color(0.85, 0.25, 0.25)
+		WagonType.CARGO:  _body.color = Color(0.95, 0.95, 0.95)
+		_:                _body.color = _normal_color
 	match state:
 		State.IDLE:
 			_shadow.visible = false
-			_label.text = ""
 		State.BLOCKED:
-			_label.text = "!"
+			pass
