@@ -84,5 +84,6 @@ func _refresh() -> void:
 			_body.modulate = Color.WHITE
 			_label.text = str(assigned_track)
 		State.BLOCKED:
+			_body.modulate = Color.WHITE
 			_body.color = Color(0.9, 0.15, 0.15)
 			_label.text = "!"

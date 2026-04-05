@@ -28,16 +28,13 @@ func _on_queue_unblocked() -> void:
 func _on_track_entry_tapped(track_index: int) -> void:
 	if queue.has_selected():
 		queue.assign_selected_to_track(track_index)
-	elif queue._blocked:
+	elif queue.is_blocked():
 		queue.resolve_block(track_index)
 
 # --- Анімація вагона: черга → поворот вгору → поворот вправо → колія ---
 
-func _get_track_y(track_index: int) -> float:
-	return 140.0 + (track_index - 1) * 70.0
-
 func _on_wagon_entered_track(wagon: Wagon, track_index: int) -> void:
-	var target_y: float  = _get_track_y(track_index)
+	var target_y: float  = station.get_track_y(track_index)
 	var up_time: float   = abs(QUEUE_Y - target_y) / ANIM_SPEED
 	var right_time: float = abs(STATION_LEFT - JUNCTION_X) / ANIM_SPEED
 

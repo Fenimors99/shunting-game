@@ -123,3 +123,6 @@ func resolve_block(track_index: int) -> void:
 
 func has_selected() -> bool:
 	return _selected != null
+
+func is_blocked() -> bool:
+	return _blocked
