@@ -1,7 +1,7 @@
 extends Area2D
 class_name Wagon
 
-enum State { IDLE, SELECTED, ASSIGNED, BLOCKED }
+enum State { IDLE, ASSIGNED, BLOCKED }
 
 const WAGON_COLORS := {
 	"red":    Color(0.85, 0.25, 0.25),
@@ -11,7 +11,8 @@ const WAGON_COLORS := {
 	"purple": Color(0.65, 0.25, 0.85),
 }
 
-signal tapped(wagon: Wagon)
+const _HALF_W := 50.0
+const _HALF_H := 31.0
 
 @export var wagon_color: String = "red"
 
@@ -24,20 +25,12 @@ var assigned_track: int = -1
 @onready var _blink_timer: Timer = $BlinkTimer
 
 func _ready() -> void:
-	input_pickable = true
-	input_event.connect(_on_input_event)
 	_blink_timer.timeout.connect(_on_blink_timeout)
+	_label.add_theme_color_override("font_color", Color.WHITE)
+	_label.add_theme_font_size_override("font_size", 22)
 	_refresh()
 
 # --- Публічний API ---
-
-func select() -> void:
-	state = State.SELECTED
-	_refresh()
-
-func deselect() -> void:
-	state = State.ASSIGNED if assigned_track != -1 else State.IDLE
-	_refresh()
 
 func assign(track_index: int) -> void:
 	assigned_track = track_index
@@ -51,6 +44,7 @@ func deassign() -> void:
 
 func start_blocking() -> void:
 	state = State.BLOCKED
+	_shadow.color = Color(0.9, 0.15, 0.15, 0.85)
 	_blink_timer.start()
 	_refresh()
 
@@ -62,30 +56,18 @@ func stop_blocking() -> void:
 
 # --- Внутрішнє ---
 
-func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		tapped.emit(self)
-	elif event is InputEventScreenTouch and event.pressed:
-		tapped.emit(self)
-
 func _on_blink_timeout() -> void:
 	_shadow.visible = !_shadow.visible
 
 func _refresh() -> void:
 	_body.color = WAGON_COLORS.get(wagon_color, Color.GRAY)
+	_body.modulate = Color.WHITE
 	match state:
 		State.IDLE:
-			_body.modulate = Color.WHITE
-			_shadow.visible = false
-			_label.text = ""
-		State.SELECTED:
-			_body.modulate = Color(1.4, 1.4, 0.5)
 			_shadow.visible = false
 			_label.text = ""
 		State.ASSIGNED:
-			_body.modulate = Color.WHITE
 			_shadow.visible = false
 			_label.text = str(assigned_track)
 		State.BLOCKED:
-			_body.modulate = Color.WHITE
 			_label.text = "!"

@@ -56,9 +56,7 @@ func _on_queue_unblocked() -> void:
 # --- Тап на кружечок входу колії ---
 
 func _on_track_entry_tapped(track_index: int) -> void:
-	if queue.has_selected():
-		queue.assign_selected_to_track(track_index)
-	elif queue.is_blocked():
+	if queue.is_blocked():
 		queue.resolve_block(track_index)
 
 # --- Анімація вагона: черга → поворот вгору → поворот вправо → колія ---

@@ -13,7 +13,6 @@ signal queue_blocked(wagon: Wagon)
 signal queue_unblocked()
 
 var _wagons: Array[Wagon] = []
-var _selected: Wagon = null
 var _blocked: bool = false
 var _running: bool = false
 var _spawn_timer: float = 0.0
@@ -21,7 +20,6 @@ var _spawn_timer: float = 0.0
 const _COLORS := ["red", "blue", "green", "yellow", "purple"]
 
 func _ready() -> void:
-	# Початкові 5 вагонів — стоять, чекають на "Старт"
 	for i in 5:
 		_spawn_wagon()
 
@@ -54,10 +52,6 @@ func _check_front_wagon() -> void:
 
 func _dispatch(wagon: Wagon) -> void:
 	_wagons.remove_at(0)
-	if _selected == wagon:
-		_selected = null
-	wagon.tapped.disconnect(_on_wagon_tapped)
-	# Передаємо вагон у GameScreen (зберігаємо world-позицію)
 	wagon.reparent(get_parent(), true)
 	wagon_entered_track.emit(wagon, wagon.assigned_track)
 	_spawn_timer = 0.0
@@ -83,36 +77,17 @@ func _do_spawn() -> void:
 func _spawn_wagon() -> void:
 	var w: Wagon = WAGON_SCENE.instantiate()
 	w.wagon_color = _COLORS[randi() % _COLORS.size()]
-	# Перший вагон — на QUEUE_START_X, кожен наступний — правіше від останнього
 	var spawn_x: float
 	if _wagons.is_empty():
 		spawn_x = Layout.QUEUE_START_X
 	else:
 		spawn_x = _wagons.back().position.x + WAGON_GAP
 	w.position = Vector2(spawn_x, 0.0)
-	w.tapped.connect(_on_wagon_tapped)
 	add_child(w)
 	_wagons.append(w)
 
-# --- Вибір і призначення ---
+# --- Призначення ---
 
-func _on_wagon_tapped(wagon: Wagon) -> void:
-	if _selected == wagon:
-		wagon.deselect()
-		_selected = null
-		return
-	if _selected != null:
-		_selected.deselect()
-	wagon.select()
-	_selected = wagon
-
-func assign_selected_to_track(track_index: int) -> void:
-	if _selected == null:
-		return
-	_selected.assign(track_index)
-	_selected = null
-
-# Викликається з GameScreen коли гравець призначає заблокований вагон
 func resolve_block(track_index: int) -> void:
 	if not _blocked or _wagons.is_empty():
 		return
@@ -122,9 +97,6 @@ func resolve_block(track_index: int) -> void:
 	_blocked = false
 	queue_unblocked.emit()
 	_dispatch(front)
-
-func has_selected() -> bool:
-	return _selected != null
 
 func is_blocked() -> bool:
 	return _blocked
