@@ -1,0 +1,11 @@
+# Godot 4 — кеш та згенеровані файли
+.godot/
+
+# Налаштування експорту (можуть містити ключі)
+export_presets.cfg
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
