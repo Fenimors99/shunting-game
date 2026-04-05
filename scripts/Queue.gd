@@ -16,7 +16,6 @@ var _wagons: Array[Wagon] = []
 var _selected: Wagon = null
 var _blocked: bool = false
 var _spawn_timer: float = 0.0
-var _post_entry_cooldown: float = -1.0  # -1 = не активний
 
 const _COLORS := ["red", "blue", "green", "yellow", "purple"]
 
@@ -57,7 +56,7 @@ func _dispatch(wagon: Wagon) -> void:
 	# Передаємо вагон у GameScreen (зберігаємо world-позицію)
 	wagon.reparent(get_parent(), true)
 	wagon_entered_track.emit(wagon, wagon.assigned_track)
-	_post_entry_cooldown = SPAWN_INTERVAL
+	_spawn_timer = 0.0
 
 func _block(wagon: Wagon) -> void:
 	_blocked = true
@@ -68,11 +67,6 @@ func _block(wagon: Wagon) -> void:
 
 func _tick_spawn(delta: float) -> void:
 	if _wagons.size() >= QUEUE_LIMIT:
-		return
-	if _post_entry_cooldown >= 0.0:
-		_post_entry_cooldown -= delta
-		if _post_entry_cooldown < 0.0:
-			_do_spawn()
 		return
 	_spawn_timer += delta
 	if _spawn_timer >= SPAWN_INTERVAL:
