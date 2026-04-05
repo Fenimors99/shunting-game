@@ -9,29 +9,35 @@ const COLOR_BORDER        := Color(0.3, 0.4, 0.55, 0.5)
 
 signal track_entry_tapped(track_index: int)
 
-var _track_wagons: Array = []   # Array[Array[Wagon]]
-var _entry_buttons: Array = []  # Array[Button]
+var _track_wagons: Array = []    # Array[Array[Wagon]]
+var _track_reserved: Array = []  # int на колію: зарезервовані + вже припарковані
+var _entry_buttons: Array = []   # Array[Button]
 
 func _ready() -> void:
 	_track_wagons.resize(Layout.TRACK_COUNT)
+	_track_reserved.resize(Layout.TRACK_COUNT)
 	for i in Layout.TRACK_COUNT:
 		_track_wagons[i] = []
+		_track_reserved[i] = 0
 	_create_entry_buttons()
 
 # --- Публічний API ---
 
-func get_next_slot(track_index: int) -> int:
-	return _track_wagons[track_index - 1].size()
-
-func place_wagon(wagon: Wagon, track_index: int) -> void:
+# Викликається одразу при тапі — резервує слот і повертає його індекс
+func reserve_slot(track_index: int) -> int:
 	var idx := track_index - 1
-	var slot: int = _track_wagons[idx].size()
-	_track_wagons[idx].append(wagon)
-	wagon.position = Vector2(Layout.get_slot_x(slot), get_track_y(track_index))
+	var slot: int = _track_reserved[idx]
+	_track_reserved[idx] += 1
 	_refresh_button(track_index)
+	return slot
+
+# Викликається коли вагон фізично доїхав — просто ставить на місце
+func place_wagon(wagon: Wagon, track_index: int, slot: int) -> void:
+	_track_wagons[track_index - 1].append(wagon)
+	wagon.position = Vector2(Layout.get_slot_x(slot), get_track_y(track_index))
 
 func is_track_full(track_index: int) -> bool:
-	return _track_wagons[track_index - 1].size() >= Layout.get_track_capacity(track_index)
+	return _track_reserved[track_index - 1] >= Layout.get_track_capacity(track_index)
 
 func get_track_y(track_index: int) -> float:
 	return Layout.get_track_y(track_index)

@@ -61,8 +61,9 @@ func _on_track_entry_tapped(track_index: int) -> void:
 # --- Анімація вагона: черга → поворот вгору → поворот вправо → колія ---
 
 func _on_wagon_entered_track(wagon: Wagon, track_index: int) -> void:
+	var slot: int        = station.reserve_slot(track_index)
 	var target_y: float  = station.get_track_y(track_index)
-	var target_x: float  = Layout.get_slot_x(station.get_next_slot(track_index))
+	var target_x: float  = Layout.get_slot_x(slot)
 	var up_time: float    = abs(Layout.QUEUE_Y - target_y) / Layout.SPEED
 	var right_time: float = abs(target_x - Layout.JUNCTION_X) / Layout.SPEED
 
@@ -72,7 +73,7 @@ func _on_wagon_entered_track(wagon: Wagon, track_index: int) -> void:
 
 	tween.tween_property(wagon, "position:y", target_y, up_time)
 	tween.tween_property(wagon, "position:x", target_x, right_time)
-	tween.tween_callback(func(): _wagon_arrived(wagon, track_index))
+	tween.tween_callback(func(): _wagon_arrived(wagon, track_index, slot))
 
-func _wagon_arrived(wagon: Wagon, track_index: int) -> void:
-	station.place_wagon(wagon, track_index)
+func _wagon_arrived(wagon: Wagon, track_index: int, slot: int) -> void:
+	station.place_wagon(wagon, track_index, slot)

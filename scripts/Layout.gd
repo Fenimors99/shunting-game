@@ -24,8 +24,8 @@ const QUEUE_START_X := 1200.0
 
 # Місткість колій (статична)
 const TRACK_CAPACITIES := { 1: 5, 2: 5, 3: 6, 4: 7, 5: 6, 6: 5, 7: 5 }
-# Відстань між вагонами на колії
-const TRACK_SLOT_SPACING := 120.0
+# Відстань між центрами вагонів (черга і колія)
+const WAGON_GAP := 150.0
 
 static func get_track_y(track_index: int) -> float:
 	return TRACK_TOP + (track_index - 1) * TRACK_SPACING
@@ -34,4 +34,5 @@ static func get_track_capacity(track_index: int) -> int:
 	return TRACK_CAPACITIES.get(track_index, 5)
 
 static func get_slot_x(slot_index: int) -> float:
-	return STATION_LEFT + 20.0 + slot_index * TRACK_SLOT_SPACING
+	# slot_index=0 — перший вагон у дальньому кінці, наступні ближче до входу
+	return STATION_RIGHT - 50.0 - slot_index * WAGON_GAP
