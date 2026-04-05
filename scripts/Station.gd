@@ -51,7 +51,11 @@ func _draw_tracks() -> void:
 		)
 
 func _draw_junction_line() -> void:
+	# Рейка черги — горизонтальна лінія де їдуть вагони
+	draw_line(Vector2(1920.0, Layout.QUEUE_Y), Vector2(Layout.JUNCTION_X, Layout.QUEUE_Y), Color(0.5, 0.6, 0.75, 0.5), 3.0)
+	# Вертикальна лінія — з'єднує чергу зі станцією
 	draw_line(Vector2(Layout.JUNCTION_X, Layout.QUEUE_Y), Vector2(Layout.JUNCTION_X, Layout.TRACK_TOP), COLOR_BORDER, 1.5)
+	# Горизонтальна лінія до входу в станцію
 	draw_line(Vector2(Layout.JUNCTION_X, Layout.TRACK_TOP), Vector2(Layout.STATION_LEFT - 30, Layout.TRACK_TOP), COLOR_BORDER, 1.5)
 
 # --- Кнопки входу (сині кружечки "+") ---

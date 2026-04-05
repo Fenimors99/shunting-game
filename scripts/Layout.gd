@@ -12,5 +12,8 @@ const TRACK_TOP     := 100.0
 const TRACK_SPACING := 110.0
 const TRACK_COUNT   := 7
 
+# Початкова X-позиція першого (переднього) вагона черги
+const QUEUE_START_X := 1200.0
+
 static func get_track_y(track_index: int) -> float:
 	return TRACK_TOP + (track_index - 1) * TRACK_SPACING

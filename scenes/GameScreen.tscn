@@ -7,9 +7,9 @@
 [node name="GameScreen" type="Node2D" unique_id=184605156]
 script = ExtResource("1_gj13t")
 
+[node name="Station" type="Node2D" parent="." unique_id=349112496]
+script = ExtResource("3_osnef")
+
 [node name="Queue" type="Node2D" parent="." unique_id=975231881]
 position = Vector2(0, 0)
 script = ExtResource("1_o75v1")
-
-[node name="Station" type="Node2D" parent="." unique_id=349112496]
-script = ExtResource("3_osnef")

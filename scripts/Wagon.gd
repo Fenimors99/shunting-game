@@ -18,6 +18,7 @@ signal tapped(wagon: Wagon)
 var state: State = State.IDLE
 var assigned_track: int = -1
 
+@onready var _shadow: ColorRect = $Shadow
 @onready var _body: ColorRect = $Body
 @onready var _label: Label = $Label
 @onready var _blink_timer: Timer = $BlinkTimer
@@ -55,7 +56,7 @@ func start_blocking() -> void:
 
 func stop_blocking() -> void:
 	_blink_timer.stop()
-	_body.visible = true
+	_shadow.visible = false
 	state = State.IDLE
 	_refresh()
 
@@ -68,22 +69,23 @@ func _on_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> voi
 		tapped.emit(self)
 
 func _on_blink_timeout() -> void:
-	_body.visible = !_body.visible
+	_shadow.visible = !_shadow.visible
 
 func _refresh() -> void:
-	_body.visible = true
 	_body.color = WAGON_COLORS.get(wagon_color, Color.GRAY)
 	match state:
 		State.IDLE:
 			_body.modulate = Color.WHITE
+			_shadow.visible = false
 			_label.text = ""
 		State.SELECTED:
 			_body.modulate = Color(1.4, 1.4, 0.5)
+			_shadow.visible = false
 			_label.text = ""
 		State.ASSIGNED:
 			_body.modulate = Color.WHITE
+			_shadow.visible = false
 			_label.text = str(assigned_track)
 		State.BLOCKED:
 			_body.modulate = Color.WHITE
-			_body.color = Color(0.9, 0.15, 0.15)
 			_label.text = "!"

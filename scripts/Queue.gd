@@ -23,7 +23,7 @@ const _COLORS := ["red", "blue", "green", "yellow", "purple"]
 func _ready() -> void:
 	# Початкові 5 вагонів — стоять, чекають на "Старт"
 	for i in 5:
-		_spawn_wagon(i)
+		_spawn_wagon()
 
 func start() -> void:
 	_running = true
@@ -78,13 +78,18 @@ func _tick_spawn(delta: float) -> void:
 		_do_spawn()
 
 func _do_spawn() -> void:
-	_spawn_wagon(_wagons.size())
+	_spawn_wagon()
 
-func _spawn_wagon(index: int) -> void:
+func _spawn_wagon() -> void:
 	var w: Wagon = WAGON_SCENE.instantiate()
 	w.wagon_color = _COLORS[randi() % _COLORS.size()]
-	# Позиція: правіше від останнього вагона
-	w.position = Vector2(Layout.JUNCTION_X + (index + 1) * WAGON_GAP + 80.0, 0.0)
+	# Перший вагон — на QUEUE_START_X, кожен наступний — правіше від останнього
+	var spawn_x: float
+	if _wagons.is_empty():
+		spawn_x = Layout.QUEUE_START_X
+	else:
+		spawn_x = _wagons.back().position.x + WAGON_GAP
+	w.position = Vector2(spawn_x, 0.0)
 	w.tapped.connect(_on_wagon_tapped)
 	add_child(w)
 	_wagons.append(w)
