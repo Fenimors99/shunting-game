@@ -11,6 +11,10 @@ const NORMAL_COLORS := [
 	Color(0.65, 0.25, 0.85),  # purple
 ]
 
+# Розміри вагона (можна підправити, якщо вони завеликі чи замалі)
+const WAGON_WIDTH = 80.0
+const WAGON_HEIGHT = 40.0
+
 @export var wagon_type: WagonType = WagonType.NORMAL
 var _normal_color: Color = NORMAL_COLORS[0]
 
@@ -21,8 +25,30 @@ var state: State = State.IDLE
 @onready var _blink_timer: Timer = $BlinkTimer
 
 func _ready() -> void:
+	# 1. Спершу налаштовуємо візуал (центрування)
+	_setup_visuals()
+	
+	# 2. Потім підключаємо таймер та оновлюємо кольори
 	_blink_timer.timeout.connect(_on_blink_timeout)
 	_refresh()
+
+# --- Нова функція для центрування ---
+
+func _setup_visuals() -> void:
+	var size = Vector2(WAGON_WIDTH, WAGON_HEIGHT)
+	
+	# Робимо так, щоб (0,0) вагона був рівно посередині прямокутника
+	var centered_pos = -size / 2.0
+	
+	# Налаштовуємо Body
+	_body.size = size
+	_body.position = centered_pos
+	_body.pivot_offset = size / 2.0 # Центр для внутрішніх поворотів
+	
+	# Налаштовуємо Shadow
+	_shadow.size = size
+	_shadow.position = centered_pos
+	_shadow.pivot_offset = size / 2.0
 
 # --- Публічний API ---
 

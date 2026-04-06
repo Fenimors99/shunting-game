@@ -65,6 +65,7 @@ func _spawn_wagon() -> void:
 	var spawn_x: float = Layout.QUEUE_START_X if _wagons.is_empty() \
 		else _wagons.back().position.x + Layout.WAGON_GAP
 	w.position = Vector2(spawn_x, 0.0)
+	w.rotation = PI # Додаємо це: вагон дивиться носом вліво (180 градусів)
 	add_child(w)
 	_wagons.append(w)
 

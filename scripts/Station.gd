@@ -125,10 +125,75 @@ func _draw_tracks() -> void:
 		)
 
 func _draw_junction_line() -> void:
-	draw_line(Vector2(get_viewport_rect().size.x, Layout.QUEUE_Y), Vector2(Layout.JUNCTION_X, Layout.QUEUE_Y), Color(0.5, 0.6, 0.75, 0.5), 3.0)
-	draw_line(Vector2(Layout.JUNCTION_X, Layout.QUEUE_Y), Vector2(Layout.JUNCTION_X, Layout.TRACK_TOP), COLOR_BORDER, 1.5)
-	draw_line(Vector2(Layout.JUNCTION_X, Layout.TRACK_TOP), Vector2(Layout.STATION_LEFT - 30, Layout.TRACK_TOP), COLOR_BORDER, 1.5)
+	var rail_color := Color(0.5, 0.6, 0.75, 0.5)
+	var thin_color := COLOR_BORDER
 
+	# 1. Основна горизонтальна лінія (черга)
+	# Додаємо невеликий нахлест (наприклад, 5 пікселів), щоб рейки візуально зістикувалися
+	_draw_rail_segment(
+		Vector2(get_viewport_rect().size.x, Layout.QUEUE_Y),
+		Vector2(Layout.JUNCTION_X - 3, Layout.QUEUE_Y), 
+		rail_color
+	)
+
+	# 2. Обчислюємо реальні межі вертикального стовбура
+	# Починаємо з координати черги
+	var min_y = Layout.QUEUE_Y
+	var max_y = Layout.QUEUE_Y
+	
+	# Перевіряємо всі точки, де колії приєднуються до стовбура (y + 20)
+	for i in range(1, Layout.TRACK_COUNT + 1):
+		var branch_connection_y = Layout.get_track_y(i) + 20
+		min_y = min(min_y, branch_connection_y)
+		max_y = max(max_y, branch_connection_y)
+
+	# 3. Малюємо вертикальний "стовбур" від найвищої до найнижчої точки
+	_draw_rail_segment(
+		Vector2(Layout.JUNCTION_X, min_y),
+		Vector2(Layout.JUNCTION_X, max_y),
+		thin_color
+	)
+	
+	# 4. Малюємо відгалуження до колій
+	for i in range(1, Layout.TRACK_COUNT + 1):
+		var y := Layout.get_track_y(i)
+		var start := Vector2(Layout.JUNCTION_X, y + 20)
+		var mid := Vector2(Layout.JUNCTION_X + 40, y)
+		var end := Vector2(Layout.STATION_LEFT - 30, y)
+
+		_draw_rail_segment(start, mid, thin_color)
+		_draw_rail_segment(mid, end, thin_color)
+		
+		
+func _draw_rail_segment(from: Vector2, to: Vector2, color: Color) -> void:
+	var dir := (to - from).normalized()
+	var normal := Vector2(-dir.y, dir.x)
+
+	var rail_offset := 3.0
+
+	# рейки
+	draw_line(from + normal * rail_offset, to + normal * rail_offset, color, 2.0)
+	draw_line(from - normal * rail_offset, to - normal * rail_offset, color, 2.0)
+
+	# шпали
+	var sleeper_color := Color(0.778, 0.825, 0.947, 0.608) 
+	var length := from.distance_to(to)
+	var step := 20.0
+
+	var dist := 7.0
+
+	while dist <= length - 5.0:
+		var t := dist / length
+		var pos := from.lerp(to, t)
+
+		var angle := dir.angle()
+
+		draw_set_transform(pos, angle, Vector2.ONE)
+		draw_rect(Rect2(-9, -3, 2, 8), sleeper_color)
+		draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+
+		dist += step
+		
 func _draw_exit_rails() -> void:
 	var rail_color := Color(0.5, 0.6, 0.75, 0.4)
 	for i in range(1, Layout.TRACK_COUNT + 1):

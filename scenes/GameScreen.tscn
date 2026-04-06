@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://cuu05uueu0bp0" path="res://scripts/GameScreen.gd" id="1_gj13t"]
 [ext_resource type="Script" uid="uid://dabqi3bba2q0f" path="res://scripts/Queue.gd" id="1_o75v1"]
 [ext_resource type="Script" uid="uid://dbdlg3ncd13ym" path="res://scripts/Station.gd" id="3_osnef"]
-[ext_resource type="Script" path="res://scripts/LocoDepot.gd" id="4_depot"]
+[ext_resource type="Script" uid="uid://bvyj1bi4hiflw" path="res://scripts/LocoDepot.gd" id="4_depot"]
 
 [node name="GameScreen" type="Node2D" unique_id=184605156]
 script = ExtResource("1_gj13t")
@@ -12,9 +12,8 @@ script = ExtResource("1_gj13t")
 script = ExtResource("3_osnef")
 
 [node name="Queue" type="Node2D" parent="." unique_id=975231881]
-position = Vector2(0, 0)
 script = ExtResource("1_o75v1")
 
-[node name="LocoDepot" type="Node2D" parent="."]
+[node name="LocoDepot" type="Node2D" parent="." unique_id=513798455]
 position = Vector2(750, 148)
 script = ExtResource("4_depot")
