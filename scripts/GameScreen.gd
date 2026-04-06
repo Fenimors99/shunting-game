@@ -1,8 +1,11 @@
 extends Node2D
 
-@onready var queue:      WagonQueue = $Queue
-@onready var station:    Node2D    = $Station
-@onready var loco_depot: LocoDepot = $LocoDepot
+@onready var queue:              WagonQueue  = $Queue
+@onready var station:            Node2D      = $Station
+@onready var loco_depot:         LocoDepot   = $LocoDepot
+@onready var task_manager:       TaskManager = $TaskManager
+@onready var task_panel:         TaskPanel   = $TaskPanel
+@onready var task_toggle_button: Button      = $TaskToggleButton
 
 func _ready() -> void:
 	queue.position.y = Layout.QUEUE_Y
@@ -13,7 +16,19 @@ func _ready() -> void:
 	station.track_exit_tapped.connect(_on_track_exit_tapped)
 	station.track_exit_choice.connect(_on_track_exit_choice)
 	loco_depot.availability_changed.connect(station.set_loco_available)
+	station.set_task_manager(task_manager)
+	var vp := get_viewport_rect().size
+	task_toggle_button.position = Vector2(
+		vp.x - TaskPanel.TOGGLE_W,
+		(vp.y - TaskPanel.TOGGLE_H) / 2.0
+	)
+	task_panel.init(task_manager, task_toggle_button)
+	task_manager.task_completed.connect(func(_i): station.refresh_all_exit_buttons())
+	task_manager.all_tasks_completed.connect(_on_all_tasks_completed)
 	_create_start_button()
+
+func _on_all_tasks_completed() -> void:
+	get_tree().change_scene_to_file("res://scenes/VictoryScreen.tscn")
 
 func _create_start_button() -> void:
 	var btn := Button.new()
@@ -48,15 +63,11 @@ func _on_start_pressed(btn: Button) -> void:
 	btn.queue_free()
 	queue.start()
 
-# --- Сигнали черги ---
-
 func _on_queue_blocked(wagon: Wagon) -> void:
 	station.set_entry_filter(wagon.wagon_type)
 
 func _on_queue_unblocked() -> void:
 	station.clear_entry_filter()
-
-# --- Тап на кружечок входу колії ---
 
 func _on_track_entry_tapped(track_index: int) -> void:
 	if not queue.is_blocked():
@@ -68,53 +79,34 @@ func _on_track_entry_tapped(track_index: int) -> void:
 		return
 	queue.resolve_block(track_index)
 
-# --- Анімація вагона: черга → поворот вгору → поворот вправо → колія ---
-
 func _on_wagon_entered_track(wagon: Wagon, track_index: int) -> void:
-	var slot: int        = station.reserve_slot(track_index)
-	var target_y: float  = station.get_track_y(track_index)
-	var target_x: float  = Layout.get_slot_x(slot)
+	var slot: int = station.reserve_slot(track_index)
+	var target_y: float = station.get_track_y(track_index)
+	# ЗМІНЕНО: Передаємо track_index для шестикутного зміщення
+	var target_x: float = Layout.get_slot_x(track_index, slot)
 	
-	# Точки маршруту згідно з вашим малюванням рейок
 	var start_y = Layout.QUEUE_Y
 	var junction_x = Layout.JUNCTION_X
 	var bend_start_y = target_y + 20.0
 	var bend_end_x = junction_x + 40.0
 	
 	var tween := create_tween()
-	tween.set_trans(Tween.TRANS_LINEAR) # Поїзди рухаються лінійно від точки до точки
+	tween.set_trans(Tween.TRANS_LINEAR)
 
-	# --- КРОК 1: ПОВОРОТ ВГОРУ ---
-	# Вагон стоїть на junction_x, розвертається носом вгору
 	tween.tween_property(wagon, "rotation", -PI/2, 0.15)
 	
-	# --- КРОК 2: РУХ ВГОРУ ПО ВЕРТИКАЛІ ---
-	# Їдемо суворо по осі Y до точки початку згину
 	var up_dist = abs(start_y - bend_start_y)
 	tween.tween_property(wagon, "position:y", bend_start_y, up_dist / Layout.SPEED)
 	
-	# --- КРОК 3: ПОВОРОТ НА ДІАГОНАЛЬ ---
-	# Повертаємо на 45 градусів (PI/4)
 	tween.tween_property(wagon, "rotation", -PI/4, 0.1)
 	
-	# --- КРОК 4: РУХ ПО ДІАГОНАЛІ (ФІКСОВАНА ШВИДКІСТЬ) ---
 	var diag_end = Vector2(bend_end_x, target_y)
-	
-	# Оскільки згин завжди від (Junction, Y+20) до (Junction+40, Y),
-	# ми можемо точно вирахувати довжину гіпотенузи: sqrt(20^2 + 40^2) ≈ 44.7
 	var fixed_diag_dist = 44.7
-	
-	# Використовуємо стабільну швидкість (наприклад, 700 пікселів/сек)
-	# незалежно від того, яка це колія
 	var constant_diag_speed = Layout.SPEED * 0.7 
 	tween.tween_property(wagon, "position", diag_end, fixed_diag_dist / constant_diag_speed)
 	
-	# --- КРОК 5: ПОВОРОТ ГОРИЗОНТАЛЬНО ---
-	# Вирівнюємо вагон для заїзду на станцію
 	tween.tween_property(wagon, "rotation", 0.0, 0.1)
 	
-	# --- КРОК 6: РУХ ПО КОЛІЇ ПРЯМО ---
-	# Їдемо до призначеного слота суворо по X
 	var final_dist = abs(bend_end_x - target_x)
 	tween.tween_property(wagon, "position:x", target_x, final_dist / Layout.SPEED)
 	
@@ -122,8 +114,6 @@ func _on_wagon_entered_track(wagon: Wagon, track_index: int) -> void:
 
 func _wagon_arrived(wagon: Wagon, track_index: int, slot: int) -> void:
 	station.place_wagon(wagon, track_index, slot)
-
-# --- Виїзд з колії ---
 
 func _on_track_exit_tapped(track_index: int) -> void:
 	if not loco_depot.use_locomotive():
@@ -138,11 +128,11 @@ func _on_track_exit_choice(track_index: int, submit: bool) -> void:
 		return
 	var wagons: Array = station.pop_all_wagons(track_index)
 	if submit:
+		task_manager.submit(wagons)
 		_animate_exit(wagons, Layout.EXIT_SUBMIT_POS)
 	else:
 		_return_to_queue(wagons)
 
-# wagons виїжджають правіше, потім зникають за екраном
 func _animate_exit(wagons: Array, dest: Vector2) -> void:
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
@@ -153,21 +143,16 @@ func _animate_exit(wagons: Array, dest: Vector2) -> void:
 		tween.tween_property(wagon, "position", dest, dist / Layout.SPEED)
 		tween.tween_callback(wagon.queue_free)
 
-# wagons повертаються в хвіст черги
 func _return_to_queue(wagons: Array) -> void:
 	var base_x := queue.get_tail_global_x() + Layout.WAGON_GAP
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
 		var dest := Vector2(base_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y)
 		var tween := create_tween()
-		# --- МИ ВИДАЛИЛИ tween_property для rotation тут ---
 		var dist := wagon.position.distance_to(dest)
-		# Вагон просто їде до черги (наприклад, задом наперед)
 		tween.tween_property(wagon, "position", dest, dist / Layout.SPEED)
 		
 		tween.tween_callback(func(): 
-			# МИТТЄВО встановлюємо PI (ліворуч) без анімації,
-			# щоб підготувати вагон до наступного виїзду
 			wagon.rotation = PI
 			queue.receive_wagon(wagon)
 			)
