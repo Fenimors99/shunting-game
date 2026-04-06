@@ -281,7 +281,7 @@ func _create_exit_buttons() -> void:
 		var y := Layout.get_track_y(i)
 		var bounds := _get_track_bounds(i)
 		var btn := Button.new()
-		btn.text = "→"
+		btn.text = ">"
 		btn.custom_minimum_size = Vector2(52, 52)
 		# Зміщуємо кнопку паралельно межі шестикутника
 		btn.position = Vector2(bounds.y + 40, y - 26)
@@ -334,12 +334,12 @@ func _create_choice_containers() -> void:
 		var bounds := _get_track_bounds(i)
 		var bx := bounds.y + 110.0  # Правіше кнопки-стрілочки по діагоналі
 
-		var btn_s := _make_choice_btn("Здати ✓", Color(0.1, 0.45, 0.15))
+		var btn_s := _make_choice_btn("Здати", Color(0.1, 0.45, 0.15))
 		btn_s.position = Vector2(bx, y - 58)
 		container.add_child(btn_s)
 		_submit_buttons[i - 1] = btn_s
 
-		var btn_q := _make_choice_btn("В чергу ↩", Color(0.45, 0.28, 0.08))
+		var btn_q := _make_choice_btn("В чергу", Color(0.45, 0.28, 0.08))
 		btn_q.position = Vector2(bx, y + 14)
 		container.add_child(btn_q)
 
