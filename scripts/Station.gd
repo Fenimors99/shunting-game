@@ -42,7 +42,8 @@ func reserve_slot(track_index: int) -> int:
 
 func place_wagon(wagon: Wagon, track_index: int, slot: int) -> void:
 	_track_wagons[track_index - 1].append(wagon)
-	wagon.position = Vector2(Layout.get_slot_x(slot), get_track_y(track_index))
+	# Використовуємо global_position, бо Layout повертає екранні координати
+	wagon.global_position = Vector2(Layout.get_slot_x(track_index, slot), get_track_y(track_index))
 	_refresh_exit_button(track_index)
 
 func pop_all_wagons(track_index: int) -> Array:
@@ -72,57 +73,101 @@ func _draw() -> void:
 	_draw_exit_rails()
 
 func _draw_station_bg() -> void:
-	var left   := Layout.STATION_LEFT - 30
-	var top    := Layout.TRACK_TOP - 40
-	var right  := Layout.STATION_RIGHT + 62   # охоплює кнопки виходу
-	var bottom := Layout.get_track_y(Layout.TRACK_COUNT) + 40
-	var w := right - left
-	var h := bottom - top
+	var left   := Layout.STATION_LEFT - 40
+	var right  := Layout.STATION_RIGHT + 10 # Трохи додав простору для "носа"
+	var top    := Layout.TRACK_TOP - 60
+	var bottom := Layout.get_track_y(Layout.TRACK_COUNT) + 60
+	
+	var width := right - left
+	var height := bottom - top
+	var center_y := top + height / 2.0
+	
+	# Параметр звуження тільки для правої сторони
+	var corner_offset := 100.0 
 
-	# Основний фон
-	draw_rect(Rect2(left, top, w, h), Color(0.05, 0.08, 0.14, 0.97))
+	# Точки фігури (Прямокутник зліва + Шестикутник справа = П'ятикутник)
+	var shape_points := PackedVector2Array([
+		Vector2(left, top),                    # 1. Верхній лівий (прямий кут)
+		Vector2(right - corner_offset, top),   # 2. Початок звуження зверху справа
+		Vector2(right, center_y),              # 3. Правий "ніс" (вершина)
+		Vector2(right - corner_offset, bottom),# 4. Кінець звуження знизу справа
+		Vector2(left, bottom)                  # 5. Нижній лівий (прямий кут)
+	])
 
-	# Підсвітка смуг між коліями
+	# 1. Малюємо основний фон
+	draw_polygon(shape_points, [Color(0.05, 0.08, 0.14, 0.97)])
+
+	# 2. Малюємо підсвітку смуг (колій)
 	for i in Layout.TRACK_COUNT:
 		var y := Layout.get_track_y(i + 1)
-		var lane_h := Layout.TRACK_SPACING * 0.72
-		var c := Color(0.12, 0.18, 0.28, 0.5) if i % 2 == 0 else Color(0.07, 0.11, 0.19, 0.5)
-		draw_rect(Rect2(left, y - lane_h * 0.5, w, lane_h), c)
+		var lane_h := Layout.TRACK_SPACING * 0.75
+		var stripe_color := Color(0.12, 0.18, 0.28, 0.5) if i % 2 == 0 else Color(0.07, 0.11, 0.19, 0.5)
+		
+		# Смуги починаються від прямого лівого краю і не доходять до гострого носа справа
+		var s_left := left + 5.0
+		var s_right := right - corner_offset
+		draw_rect(Rect2(s_left, y - lane_h * 0.5, s_right - s_left, lane_h), stripe_color)
 
-	# Зовнішня рамка
-	draw_rect(Rect2(left, top, w, h), Color(0.25, 0.38, 0.55, 0.8), false, 2.0)
-	# Внутрішній світлий контур
-	draw_rect(Rect2(left + 3, top + 3, w - 6, h - 6), Color(0.45, 0.6, 0.8, 0.12), false, 1.0)
+	# 3. Зовнішня рамка (обводка)
+	# Додаємо першу точку в кінець, щоб лінія замкнулася автоматично
+	var border_points := shape_points
+	border_points.append(shape_points[0])
+	draw_polyline(border_points, Color(0.25, 0.38, 0.55, 0.8), 2.5, true)
 
+	# 4. Декоративний внутрішній контур ("скляний" ефект)
+	var inner_margin := 4.0
+	var inner_points := PackedVector2Array([
+		Vector2(left + inner_margin, top + inner_margin),
+		Vector2(right - corner_offset - inner_margin, top + inner_margin),
+		Vector2(right - inner_margin * 2.0, center_y),
+		Vector2(right - corner_offset - inner_margin, bottom - inner_margin),
+		Vector2(left + inner_margin, bottom - inner_margin),
+		Vector2(left + inner_margin, top + inner_margin)
+	])
+	draw_polyline(inner_points, Color(0.45, 0.6, 0.8, 0.12), 1.0, true)
+	
 func _draw_tracks() -> void:
-	var labels := ["Колія 1 — вантажна", "Колія 2", "Колія 3",
-				   "Колія 4", "Колія 5", "Колія 6", "Колія 7 — ремонтна"]
-	var font := ThemeDB.fallback_font
-
+	# 1. Ті самі межі, що ми використовували для малювання фону
+	var left   := Layout.STATION_LEFT - 40
+	var right  := Layout.STATION_RIGHT + 100
+	var top    := Layout.TRACK_TOP - 60
+	var bottom := Layout.get_track_y(Layout.TRACK_COUNT) + 60
+	
+	var height := bottom - top
+	var center_y := top + height / 2.0
+	var corner_offset := 70.0 # Має бути таким самим, як у _draw_station_bg
+	
 	for i in Layout.TRACK_COUNT:
-		var y := Layout.get_track_y(i + 1)
-		var color := COLOR_TRACK_NORMAL
-		if i == 0:   color = COLOR_TRACK_CARGO
-		elif i == 6: color = COLOR_TRACK_REPAIR
-
-		# Шпали
-		var sleeper_color := Color(0.28, 0.32, 0.38, 0.55)
-		var sx := Layout.STATION_LEFT
-		while sx <= Layout.STATION_RIGHT:
-			draw_line(Vector2(sx, y - 5), Vector2(sx, y + 5), sleeper_color, 2.5)
-			sx += 24.0
-
-		# Рейки (дві нитки)
-		draw_line(Vector2(Layout.STATION_LEFT, y - 3), Vector2(Layout.STATION_RIGHT, y - 3), color, 2.0)
-		draw_line(Vector2(Layout.STATION_LEFT, y + 3), Vector2(Layout.STATION_RIGHT, y + 3), color, 2.0)
-
-		# Підпис
-		draw_string(font,
-			Vector2(Layout.STATION_LEFT + 10, y - 12),
-			labels[i],
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 15,
-			Color(0.65, 0.75, 0.9, 0.75)
+		var track_y := Layout.get_track_y(i + 1)
+		
+		# --- РОЗРАХУНОК ОБРІЗКИ ---
+		
+		# Вираховуємо, наскільки далеко від центру (по вертикалі) знаходиться колія
+		# 0.0 = центр, 1.0 = самий верх або самий нижній край
+		var distance_from_center := absf(track_y - center_y) / (height / 2.0)
+		
+		# Чим далі колія від центру, тим сильніше ми її "підрізаємо" згідно зі скосом
+		var track_right_edge := right - (distance_from_center * corner_offset)
+		
+		# Трохи відступимо від самого краю для краси (наприклад, на 10 пікселів)
+		var final_x_end := track_right_edge - 10.0
+		
+		# 2. Малюємо саму колію (лінію)
+		# Вона починається від прямого лівого краю і закінчується на розрахованій точці
+		draw_line(
+			Vector2(left, track_y), 
+			Vector2(final_x_end, track_y), 
+			Color(0.3, 0.4, 0.5, 0.4), # Колір рейок
+			1.0 # Товщина
 		)
+		
+		# 3. Малюємо текст (назви колій)
+		# Тепер ми теж можемо їх підняти (як ви питали раніше)
+		var labels := ["Колія 1 — вантажна", "Колія 2", "Колія 3",
+					   "Колія 4", "Колія 5", "Колія 6", "Колія 7 — ремонтна"]
+		
+		var text_pos := Vector2(left + 20, track_y - 20) # Підняли на 20 пікселів
+		draw_string(ThemeDB.fallback_font, text_pos, labels[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.GRAY)
 
 func _draw_junction_line() -> void:
 	var rail_color := Color(0.5, 0.6, 0.75, 0.5)

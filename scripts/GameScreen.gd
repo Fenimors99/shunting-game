@@ -13,6 +13,7 @@ func _ready() -> void:
 	station.track_exit_tapped.connect(_on_track_exit_tapped)
 	station.track_exit_choice.connect(_on_track_exit_choice)
 	loco_depot.availability_changed.connect(station.set_loco_available)
+	loco_depot.position = Layout.LOCO_DEPOT_RECT.position
 	_create_start_button()
 
 func _create_start_button() -> void:
@@ -73,7 +74,7 @@ func _on_track_entry_tapped(track_index: int) -> void:
 func _on_wagon_entered_track(wagon: Wagon, track_index: int) -> void:
 	var slot: int        = station.reserve_slot(track_index)
 	var target_y: float  = station.get_track_y(track_index)
-	var target_x: float  = Layout.get_slot_x(slot)
+	var target_x: float  = Layout.get_slot_x(track_index, slot)
 	
 	# Точки маршруту згідно з вашим малюванням рейок
 	var start_y = Layout.QUEUE_Y
@@ -119,6 +120,20 @@ func _on_wagon_entered_track(wagon: Wagon, track_index: int) -> void:
 	tween.tween_property(wagon, "position:x", target_x, final_dist / Layout.SPEED)
 	
 	tween.tween_callback(func(): _wagon_arrived(wagon, track_index, slot))
+	
+func _move_wagon_to_station(wagon: Wagon, track_idx: int) -> void:
+	# Отримуємо динамічний X для цієї колії
+	var stop_x := Layout.get_track_stop_x(track_idx)
+	var target_pos := Vector2(stop_x, Layout.get_track_y(track_idx))
+	
+	var tween := create_tween()
+	var dist := wagon.position.distance_to(target_pos)
+	
+	# Рух до нової точки зупинки
+	tween.tween_property(wagon, "position", target_pos, dist / Layout.SPEED)
+	
+	# Якщо у вас є поворот при заїзді, не забудьте його залишити
+	tween.parallel().tween_property(wagon, "rotation", 1.5 * PI, 0.3)
 
 func _wagon_arrived(wagon: Wagon, track_index: int, slot: int) -> void:
 	station.place_wagon(wagon, track_index, slot)
