@@ -1,8 +1,7 @@
 # Godot 4 — кеш та згенеровані файли
 .godot/
 
-# Налаштування експорту (можуть містити ключі)
-export_presets.cfg
+# export_presets.cfg не ігноруємо — потрібен для CI/CD білду
 
 # macOS
 .DS_Store
