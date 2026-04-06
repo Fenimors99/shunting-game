@@ -44,7 +44,6 @@ func sign_in_with_google() -> void:
 		auth_success.emit(current)
 		return
 	JavaScriptBridge.get_interface("window").fbSignInWithGoogle(_error_cb)
-	_poll_redirect()
 
 func sign_out() -> void:
 	if not _is_web:
