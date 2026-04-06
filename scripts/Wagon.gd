@@ -14,7 +14,7 @@ const NORMAL_COLORS := [
 
 # Розміри вагона (можна підправити, якщо вони завеликі чи замалі)
 const WAGON_WIDTH = 80.0
-const WAGON_HEIGHT = 40.0
+const WAGON_HEIGHT = 35.0
 
 @export var wagon_type: WagonType = WagonType.NORMAL
 var color_id: WagonColorId = WagonColorId.BLUE

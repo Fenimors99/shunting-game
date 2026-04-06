@@ -17,7 +17,7 @@ script = ExtResource("3_osnef")
 script = ExtResource("1_o75v1")
 
 [node name="LocoDepot" type="Node2D" parent="." unique_id=513798455]
-position = Vector2(750, 148)
+position = Vector2(750, 120)
 script = ExtResource("4_depot")
 
 [node name="TaskManager" type="Node" parent="." unique_id=621047832]
