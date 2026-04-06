@@ -16,9 +16,10 @@ const TRACK_COUNT   := 7
 const SPEED := 440.0
 const QUEUE_START_X := 1200.0
 
-# НОВІ МІСТКОСТІ КОЛІЙ (формують шестикутник)
-const TRACK_CAPACITIES := { 1: 4, 2: 5, 3: 6, 4: 7, 5: 6, 6: 5, 7: 4 }
-const WAGON_GAP := 95.0
+# Місткості колій — симетричний шестикутник навколо центральної колії
+const TRACK_CAPACITIES   := { 1: 4, 2: 5, 3: 6, 4: 7, 5: 6, 6: 5, 7: 4 }
+const MAX_TRACK_CAPACITY := 7   # місткість центральної (найдовшої) колії
+const WAGON_GAP          := 95.0
 
 static func get_track_y(track_index: int) -> float:
 	return TRACK_TOP + (track_index - 1) * TRACK_SPACING
