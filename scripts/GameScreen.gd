@@ -24,7 +24,11 @@ func _ready() -> void:
 	)
 	task_panel.init(task_manager, task_toggle_button)
 	task_manager.task_completed.connect(func(_i): station.refresh_all_exit_buttons())
+	task_manager.all_tasks_completed.connect(_on_all_tasks_completed)
 	_create_start_button()
+
+func _on_all_tasks_completed() -> void:
+	get_tree().change_scene_to_file("res://scenes/VictoryScreen.tscn")
 
 func _create_start_button() -> void:
 	var btn := Button.new()
