@@ -62,7 +62,7 @@ func _draw() -> void:
 		draw_rect(Rect2(14, y - 11, 13, 13), box_col)
 		draw_rect(Rect2(14, y - 11, 13, 13), Color(0.60, 0.75, 0.90, 0.6), false, 1.0)
 		if done:
-			draw_string(font, Vector2(15, y), "✓",
+			draw_string(font, Vector2(15, y), "v",
 				HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.05, 0.05, 0.05))
 
 		var num_col := Color(0.55, 0.75, 0.55) if done else Color(0.70, 0.80, 1.00)
@@ -95,7 +95,7 @@ func _draw() -> void:
 
 func _apply_toggle_style() -> void:
 	_toggle_btn.custom_minimum_size = Vector2(TOGGLE_W, TOGGLE_H)
-	_toggle_btn.text = "❮"
+	_toggle_btn.text = "<"
 
 	var s := StyleBoxFlat.new()
 	s.bg_color    = Color(0.12, 0.20, 0.35, 0.95)
@@ -116,7 +116,7 @@ func _toggle() -> void:
 		return
 	_tweening = true
 	_open = not _open
-	_toggle_btn.text = "❯" if not _open else "❮"
+	_toggle_btn.text = ">" if not _open else "<"
 
 	var target_x := _pos_open if _open else _pos_closed
 	var tween := create_tween()
