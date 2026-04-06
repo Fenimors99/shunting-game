@@ -3,8 +3,6 @@ class_name WagonQueue
 
 const WAGON_SCENE  := preload("res://scenes/Wagon.tscn")
 const WAGON_COUNT  := 50
-const QUEUE_SPEED  := 80.0   # px/сек
-const WAGON_GAP    := 150.0  # відстань між вагонами
 
 signal wagon_entered_track(wagon: Wagon, track_index: int)
 signal queue_blocked(wagon: Wagon)
@@ -14,7 +12,6 @@ var _wagons: Array[Wagon] = []
 var _blocked: bool = false
 var _running: bool = false
 
-const _COLORS := ["red", "blue", "green", "yellow", "purple"]
 
 func _ready() -> void:
 	for i in WAGON_COUNT:
@@ -33,7 +30,7 @@ func _process(delta: float) -> void:
 
 func _move_wagons(delta: float) -> void:
 	for w in _wagons:
-		w.position.x -= QUEUE_SPEED * delta
+		w.position.x -= Layout.SPEED * delta
 
 func _check_front_wagon() -> void:
 	if _wagons.is_empty():
@@ -57,12 +54,22 @@ func _block(wagon: Wagon) -> void:
 
 func _spawn_wagon() -> void:
 	var w: Wagon = WAGON_SCENE.instantiate()
-	w.wagon_color = _COLORS[randi() % _COLORS.size()]
+	var roll := randi() % 5
+	if roll == 0:
+		w.wagon_type = Wagon.WagonType.BROKEN
+	elif roll == 1:
+		w.wagon_type = Wagon.WagonType.CARGO
+	else:
+		w.wagon_type = Wagon.WagonType.NORMAL
+		w._normal_color = Wagon.NORMAL_COLORS[randi() % Wagon.NORMAL_COLORS.size()]
 	var spawn_x: float = Layout.QUEUE_START_X if _wagons.is_empty() \
-		else _wagons.back().position.x + WAGON_GAP
+		else _wagons.back().position.x + Layout.WAGON_GAP
 	w.position = Vector2(spawn_x, 0.0)
 	add_child(w)
 	_wagons.append(w)
+
+func get_front_wagon() -> Wagon:
+	return _wagons[0] if not _wagons.is_empty() else null
 
 # --- Призначення ---
 
@@ -77,3 +84,17 @@ func resolve_block(track_index: int) -> void:
 
 func is_blocked() -> bool:
 	return _blocked
+
+# --- Повернення вагона з станції в хвіст черги ---
+
+func get_tail_global_x() -> float:
+	if _wagons.is_empty():
+		return Layout.QUEUE_START_X
+	# Queue.position.x = 0, тому local x = global x
+	return _wagons.back().position.x
+
+func receive_wagon(wagon: Wagon) -> void:
+	# Вагон вже анімований до потрібної глобальної позиції
+	wagon.reparent(self, true)   # зберігає глобальну позицію → конвертує в локальну
+	wagon.stop_blocking()
+	_wagons.append(wagon)
