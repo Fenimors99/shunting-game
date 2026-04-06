@@ -236,7 +236,7 @@ func _refresh_entry_button(track_index: int) -> void:
 		btn.text = ""
 		btn.disabled = true
 		btn.add_theme_stylebox_override("disabled", _make_circle_style(Color(0.3, 0.15, 0.15, 0.6)))
-	elif _filter_active and not _track_compatible(_filter_type, track_index):
+	elif _filter_active and not Layout.is_wagon_compatible(_filter_type, track_index):
 		btn.text = "+"
 		btn.disabled = true
 		btn.add_theme_stylebox_override("disabled", _make_circle_style(Color(0.15, 0.15, 0.18, 0.5)))
@@ -245,11 +245,6 @@ func _refresh_entry_button(track_index: int) -> void:
 		btn.disabled = false
 		btn.add_theme_stylebox_override("normal", _make_circle_style(Color(0.1, 0.3, 0.7, 0.9)))
 
-static func _track_compatible(wagon_type: Wagon.WagonType, track_index: int) -> bool:
-	match wagon_type:
-		Wagon.WagonType.BROKEN: return track_index == 7
-		Wagon.WagonType.CARGO:  return track_index == 1
-		_: return track_index != 1 and track_index != 7
 
 # --- Кнопки виходу ---
 

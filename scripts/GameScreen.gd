@@ -64,15 +64,9 @@ func _on_track_entry_tapped(track_index: int) -> void:
 	if station.is_track_full(track_index):
 		return
 	var wagon := queue.get_front_wagon()
-	if wagon and not _wagon_fits_track(wagon, track_index):
+	if wagon and not Layout.is_wagon_compatible(wagon.wagon_type, track_index):
 		return
 	queue.resolve_block(track_index)
-
-func _wagon_fits_track(wagon: Wagon, track_index: int) -> bool:
-	match wagon.wagon_type:
-		Wagon.WagonType.BROKEN: return track_index == 7
-		Wagon.WagonType.CARGO:  return track_index == 1
-		_: return track_index != 1 and track_index != 7
 
 # --- Анімація вагона: черга → поворот вгору → поворот вправо → колія ---
 

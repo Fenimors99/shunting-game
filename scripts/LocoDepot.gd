@@ -18,9 +18,9 @@ func _process(delta: float) -> void:
 	var any_busy := false
 	for i in MAX_LOCOS:
 		if _timers[i] > 0.0:
-			var was_zero := _timers[i] <= delta
+			var will_expire := _timers[i] <= delta
 			_timers[i] = maxf(0.0, _timers[i] - delta)
-			if was_zero:
+			if will_expire:
 				availability_changed.emit(has_locomotive())
 			any_busy = true
 	if any_busy:

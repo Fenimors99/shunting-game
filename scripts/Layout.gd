@@ -45,3 +45,9 @@ const EXIT_SUBMIT_POS   := Vector2(2200.0, -200.0)   # Здати завданн
 
 # Локомотивне депо (на екрані)
 const LOCO_DEPOT_RECT   := Rect2(1310.0, 870.0, 180.0, 75.0)
+
+static func is_wagon_compatible(wagon_type: Wagon.WagonType, track_index: int) -> bool:
+	match wagon_type:
+		Wagon.WagonType.BROKEN: return track_index == 7
+		Wagon.WagonType.CARGO:  return track_index == 1
+		_: return track_index != 1 and track_index != 7
