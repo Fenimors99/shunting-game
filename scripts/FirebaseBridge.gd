@@ -12,6 +12,8 @@ func _ready() -> void:
 	if not _is_web:
 		return
 	_error_cb = JavaScriptBridge.create_callback(_on_sign_in_error)
+	# Wait one frame so parent LoginScreen._ready() connects signals first
+	await get_tree().process_frame
 	_poll_redirect()
 
 func _poll_redirect() -> void:
@@ -35,6 +37,11 @@ func sign_in_with_google() -> void:
 			"email":       "dev@local",
 			"photoURL":    ""
 		})
+		return
+	# If already signed in (redirect result missed by timing), emit success directly
+	var current = get_current_user()
+	if not current.is_empty():
+		auth_success.emit(current)
 		return
 	JavaScriptBridge.get_interface("window").fbSignInWithGoogle(_error_cb)
 
