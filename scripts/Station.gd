@@ -34,11 +34,11 @@ func _ready() -> void:
 	_create_exit_buttons()
 	_create_choice_containers()
 
-# --- ДОПОМІЖНА ФУНКЦІЯ: Розрахунок меж рейок для кожної колії ---
+# Розраховує (start_x, end_x) рейок для колії відносно центральної (найдовшої).
+# Коротші колії симетрично зміщені всередину, формуючи шестикутник.
 func _get_track_bounds(track_index: int) -> Vector2:
-	var cap_diff = 7.0 - Layout.get_track_capacity(track_index)
-	var offset = (cap_diff / 2.0) * Layout.WAGON_GAP
-	# Повертає (start_x, end_x)
+	var cap_diff := float(Layout.MAX_TRACK_CAPACITY - Layout.get_track_capacity(track_index))
+	var offset   := (cap_diff / 2.0) * Layout.WAGON_GAP
 	return Vector2(Layout.STATION_LEFT + offset, Layout.STATION_RIGHT - offset)
 
 func reserve_slot(track_index: int) -> int:
@@ -82,17 +82,21 @@ func _draw() -> void:
 	_draw_exit_rails()
 
 func _draw_station_bg() -> void:
-	var top_y := Layout.TRACK_TOP - 50.0
+	var top_y    := Layout.TRACK_TOP - 50.0
 	var bottom_y := Layout.get_track_y(Layout.TRACK_COUNT) + 40.0
-	var mid_y := Layout.get_track_y(4)
+	# Екватор шестикутника — центральна (найдовша) колія
+	var mid_y    := Layout.get_track_y((Layout.TRACK_COUNT + 1) / 2)
 
-	var left_base := Layout.STATION_LEFT - 30.0
-	var right_base := Layout.STATION_RIGHT + 30.0
+	# Базові межі фону: трохи ширші за станцію
+	var padding    := 30.0
+	var left_base  := Layout.STATION_LEFT  - padding
+	var right_base := Layout.STATION_RIGHT + padding
 
-	# Максимальне зміщення для колій з місткістю 4
-	var max_indent := 150.0 
-	# Додатковий відступ для кутів, щоб зберегти паралельність
-	var corner_indent := max_indent + (40.0 * (150.0 / 255.0)) 
+	# Зміщення кута = відступ до найкоротшої колії + базовий padding фону.
+	# Так кут шестикутника візуально збігається з початком крайньої колії.
+	var min_cap        := float(Layout.MAX_TRACK_CAPACITY - Layout.TRACK_CAPACITIES.values().min())
+	var track_offset   := (min_cap / 2.0) * Layout.WAGON_GAP
+	var corner_indent  := padding + track_offset
 
 	var points := PackedVector2Array([
 		Vector2(left_base + corner_indent, top_y),       # Верхній лівий кут
