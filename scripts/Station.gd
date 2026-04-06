@@ -16,16 +16,20 @@ var _track_reserved: Array = []    # int на колію: зарезервова
 var _entry_buttons: Array = []     # Array[Button]
 var _exit_buttons: Array = []      # Array[Button]
 var _choice_containers: Array = [] # Array[Node2D], для колій 2-6
+var _submit_buttons:    Array = [] # Array[Button], кнопка "Здати ✓" для кожної колії 2-6
 var _filter_active: bool = false
 var _filter_type: Wagon.WagonType = Wagon.WagonType.NORMAL
 var _loco_available: bool = true
+var _task_manager: TaskManager = null
 
 func _ready() -> void:
 	_track_wagons.resize(Layout.TRACK_COUNT)
 	_track_reserved.resize(Layout.TRACK_COUNT)
+	_submit_buttons.resize(Layout.TRACK_COUNT)
 	for i in Layout.TRACK_COUNT:
 		_track_wagons[i] = []
 		_track_reserved[i] = 0
+		_submit_buttons[i] = null
 	_create_entry_buttons()
 	_create_exit_buttons()
 	_create_choice_containers()
@@ -265,6 +269,13 @@ func _create_exit_buttons() -> void:
 		add_child(btn)
 		_exit_buttons.append(btn)
 
+func set_task_manager(tm: TaskManager) -> void:
+	_task_manager = tm
+
+func refresh_all_exit_buttons() -> void:
+	for i in range(1, Layout.TRACK_COUNT + 1):
+		_refresh_exit_button(i)
+
 func set_loco_available(available: bool) -> void:
 	_loco_available = available
 	for i in range(1, Layout.TRACK_COUNT + 1):
@@ -273,8 +284,7 @@ func set_loco_available(available: bool) -> void:
 func _refresh_exit_button(track_index: int) -> void:
 	var parked: int = get_wagon_count(track_index)
 	var in_transit: bool = _track_reserved[track_index - 1] > parked
-	_exit_buttons[track_index - 1].disabled = \
-		parked == 0 or in_transit or not _loco_available
+	_exit_buttons[track_index - 1].disabled = parked == 0 or in_transit or not _loco_available
 
 func _on_exit_pressed(track_index: int) -> void:
 	if track_index == 1 or track_index == 7:
@@ -300,6 +310,7 @@ func _create_choice_containers() -> void:
 		var btn_s := _make_choice_btn("Здати ✓", Color(0.1, 0.45, 0.15))
 		btn_s.position = Vector2(bx, y - 58)   # вище колії
 		container.add_child(btn_s)
+		_submit_buttons[i - 1] = btn_s
 
 		var btn_q := _make_choice_btn("В чергу ↩", Color(0.45, 0.28, 0.08))
 		btn_q.position = Vector2(bx, y + 14)   # нижче колії
@@ -312,6 +323,10 @@ func _create_choice_containers() -> void:
 func _show_choice(track_index: int) -> void:
 	_choice_containers[track_index - 1].visible = true
 	_exit_buttons[track_index - 1].disabled = true
+	# "Здати ✓" доступна тільки якщо вагони точно закривають одне завдання
+	var btn_s: Button = _submit_buttons[track_index - 1]
+	if btn_s != null and _task_manager != null:
+		btn_s.disabled = not _task_manager.can_submit(_track_wagons[track_index - 1])
 
 func _on_choice(track_index: int, submit: bool) -> void:
 	_choice_containers[track_index - 1].visible = false

@@ -1,8 +1,11 @@
 extends Node2D
 
-@onready var queue:      WagonQueue = $Queue
-@onready var station:    Node2D    = $Station
-@onready var loco_depot: LocoDepot = $LocoDepot
+@onready var queue:        WagonQueue  = $Queue
+@onready var station:      Node2D      = $Station
+@onready var loco_depot:   LocoDepot   = $LocoDepot
+@onready var task_manager:       TaskManager = $TaskManager
+@onready var task_panel:         TaskPanel   = $TaskPanel
+@onready var task_toggle_button: Button      = $TaskToggleButton
 
 func _ready() -> void:
 	queue.position.y = Layout.QUEUE_Y
@@ -13,6 +16,14 @@ func _ready() -> void:
 	station.track_exit_tapped.connect(_on_track_exit_tapped)
 	station.track_exit_choice.connect(_on_track_exit_choice)
 	loco_depot.availability_changed.connect(station.set_loco_available)
+	station.set_task_manager(task_manager)
+	var vp := get_viewport_rect().size
+	task_toggle_button.position = Vector2(
+		vp.x - TaskPanel.TOGGLE_W,
+		(vp.y - TaskPanel.TOGGLE_H) / 2.0
+	)
+	task_panel.init(task_manager, task_toggle_button)
+	task_manager.task_completed.connect(func(_i): station.refresh_all_exit_buttons())
 	_create_start_button()
 
 func _create_start_button() -> void:
@@ -138,6 +149,7 @@ func _on_track_exit_choice(track_index: int, submit: bool) -> void:
 		return
 	var wagons: Array = station.pop_all_wagons(track_index)
 	if submit:
+		task_manager.submit(wagons)
 		_animate_exit(wagons, Layout.EXIT_SUBMIT_POS)
 	else:
 		_return_to_queue(wagons)

@@ -61,7 +61,7 @@ func _spawn_wagon() -> void:
 		w.wagon_type = Wagon.WagonType.CARGO
 	else:
 		w.wagon_type = Wagon.WagonType.NORMAL
-		w._normal_color = Wagon.NORMAL_COLORS[randi() % Wagon.NORMAL_COLORS.size()]
+		w.color_id = randi() % Wagon.NORMAL_COLORS.size() as Wagon.WagonColorId
 	var spawn_x: float = Layout.QUEUE_START_X if _wagons.is_empty() \
 		else _wagons.back().position.x + Layout.WAGON_GAP
 	w.position = Vector2(spawn_x, 0.0)
