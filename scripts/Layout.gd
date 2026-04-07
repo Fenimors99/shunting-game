@@ -6,7 +6,10 @@ const SCREEN_H := 1080.0
 
 const JUNCTION_X    := 240.0
 const QUEUE_Y       := 1039.0
-const QUEUE_ARC_X   := 420.0   # Де черга закінчується і починається дуга повороту
+# Вертикальна розподільна рейка (впритул до лівого краю шестикутника)
+const DIST_RAIL_X   := 520.0
+# Де горизонтальна черга закінчується і починається дуга вгору
+const QUEUE_ARC_X   := 714.0   # DIST_RAIL_X + (QUEUE_Y - track_7_y) ≈ 520+194
 
 const STATION_LEFT  := 560.0
 const STATION_RIGHT := 1280.0

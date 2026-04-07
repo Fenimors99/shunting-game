@@ -166,37 +166,38 @@ func _draw_junction_line() -> void:
 	var rail_color := Color(0.5, 0.6, 0.75, 0.5)
 	var thin_color := COLOR_BORDER
 
-	# Пряма ділянка черги: від правого краю екрана до початку дуги
+	# Горизонтальна черга: від правого краю до початку дуги
 	_draw_rail_segment(
 		Vector2(get_viewport_rect().size.x, Layout.QUEUE_Y),
 		Vector2(Layout.QUEUE_ARC_X, Layout.QUEUE_Y),
 		rail_color
 	)
 
-	# Дуга: плавний поворот від черги вгору до вертикального розподільника
+	# Дуга знизу: плавний поворот від черги вгору до розподільної рейки
 	var arc_end_y := Layout.get_track_y(Layout.TRACK_COUNT) + 20.0
 	_draw_curved_rail(_quad_bezier(
-		Vector2(Layout.QUEUE_ARC_X, Layout.QUEUE_Y),
-		Vector2(Layout.JUNCTION_X,  Layout.QUEUE_Y),
-		Vector2(Layout.JUNCTION_X,  arc_end_y)
+		Vector2(Layout.QUEUE_ARC_X,  Layout.QUEUE_Y),
+		Vector2(Layout.DIST_RAIL_X,  Layout.QUEUE_Y),
+		Vector2(Layout.DIST_RAIL_X,  arc_end_y)
 	), rail_color)
 
-	# Вертикальна рейка від колії 7 вгору до колії 1
+	# Вертикальна розподільна рейка — від колії 7 вгору до колії 1
 	_draw_rail_segment(
-		Vector2(Layout.JUNCTION_X, arc_end_y),
-		Vector2(Layout.JUNCTION_X, Layout.get_track_y(1) + 20),
+		Vector2(Layout.DIST_RAIL_X, arc_end_y),
+		Vector2(Layout.DIST_RAIL_X, Layout.get_track_y(1) + 20),
 		thin_color
 	)
 
-	# Розгалуження до кожної колії
+	# Короткі гілки від розподільної рейки до кожної колії
 	for i in range(1, Layout.TRACK_COUNT + 1):
 		var y      := Layout.get_track_y(i)
 		var bounds := _get_track_bounds(i)
-		var start  := Vector2(Layout.JUNCTION_X,      y + 20)
-		var mid    := Vector2(Layout.JUNCTION_X + 40, y)
-		var end    := Vector2(bounds.x - 10,          y)
-		_draw_rail_segment(start, mid, thin_color)
-		_draw_rail_segment(mid,   end, thin_color)
+		# Маленька стрілка-відгалуження від вертикалі в горизонталь колії
+		var sw_start := Vector2(Layout.DIST_RAIL_X,      y + 18)
+		var sw_mid   := Vector2(Layout.DIST_RAIL_X + 28, y)
+		var sw_end   := Vector2(bounds.x,                y)
+		_draw_rail_segment(sw_start, sw_mid, thin_color)
+		_draw_rail_segment(sw_mid,   sw_end, thin_color)
 
 
 func _quad_bezier(p0: Vector2, p1: Vector2, p2: Vector2,
