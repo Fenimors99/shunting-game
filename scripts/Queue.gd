@@ -64,7 +64,7 @@ func _check_front_wagon() -> void:
 		return
 
 	var front: Wagon = _wagons[0]
-	if front.position.x > Layout.JUNCTION_X:
+	if front.position.x > Layout.QUEUE_ARC_X:
 		return
 
 	_block(front)

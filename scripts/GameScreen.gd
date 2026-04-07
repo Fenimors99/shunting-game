@@ -81,39 +81,34 @@ func _on_track_entry_tapped(track_index: int) -> void:
 
 func _on_wagon_entered_track(wagon: Wagon, track_index: int) -> void:
 	var slot: int = station.reserve_slot(track_index)
-	var target_y: float = station.get_track_y(track_index)
-	# ЗМІНЕНО: Передаємо track_index для шестикутного зміщення
-	var target_x: float = Layout.get_slot_x(track_index, slot)
-	
-	var start_y = Layout.QUEUE_Y
-	var junction_x = Layout.JUNCTION_X
-	var bend_start_y = target_y + 20.0
-	var bend_end_x = junction_x + 40.0
-	
-	var tween := create_tween()
-	tween.set_trans(Tween.TRANS_LINEAR)
+	var path := Layout.get_entry_path(track_index, slot)
+	_animate_along_path(wagon, path, func():
+		wagon.rotation = 0.0
+		station.place_wagon(wagon, track_index, slot)
+	)
 
-	tween.tween_property(wagon, "rotation", -PI/2, 0.15)
-	
-	var up_dist = abs(start_y - bend_start_y)
-	tween.tween_property(wagon, "position:y", bend_start_y, up_dist / Layout.SPEED)
-	
-	tween.tween_property(wagon, "rotation", -PI/4, 0.1)
-	
-	var diag_end = Vector2(bend_end_x, target_y)
-	var fixed_diag_dist = 44.7
-	var constant_diag_speed = Layout.SPEED * 0.7 
-	tween.tween_property(wagon, "position", diag_end, fixed_diag_dist / constant_diag_speed)
-	
-	tween.tween_property(wagon, "rotation", 0.0, 0.1)
-	
-	var final_dist = abs(bend_end_x - target_x)
-	tween.tween_property(wagon, "position:x", target_x, final_dist / Layout.SPEED)
-	
-	tween.tween_callback(func(): _wagon_arrived(wagon, track_index, slot))
+func _animate_along_path(wagon: Wagon, path: PackedVector2Array, on_done: Callable) -> void:
+	# Накопичені довжини відрізків для рівномірної швидкості
+	var cumul: Array[float] = [0.0]
+	for i in range(1, path.size()):
+		cumul.append(cumul[i - 1] + path[i - 1].distance_to(path[i]))
+	var total: float = cumul[cumul.size() - 1]
+	if total < 1.0:
+		on_done.call()
+		return
 
-func _wagon_arrived(wagon: Wagon, track_index: int, slot: int) -> void:
-	station.place_wagon(wagon, track_index, slot)
+	var tween := create_tween().set_trans(Tween.TRANS_LINEAR)
+	tween.tween_method(func(t: float):
+		var d := t * total
+		for i in range(1, path.size()):
+			if cumul[i] >= d or i == path.size() - 1:
+				var seg_len := cumul[i] - cumul[i - 1]
+				var seg_t   := 0.0 if seg_len < 0.001 else (d - cumul[i - 1]) / seg_len
+				wagon.position = path[i - 1].lerp(path[i], clampf(seg_t, 0.0, 1.0))
+				break,
+		0.0, 1.0, total / Layout.SPEED
+	)
+	tween.tween_callback(on_done)
 
 func _on_track_exit_tapped(track_index: int) -> void:
 	if not loco_depot.use_locomotive():

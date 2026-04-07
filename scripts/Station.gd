@@ -166,46 +166,23 @@ func _draw_junction_line() -> void:
 	var rail_color := Color(0.5, 0.6, 0.75, 0.5)
 	var thin_color := COLOR_BORDER
 
-	# Нижня точка розподільної рейки — вхід колії 7 (нижня, найкоротша)
-	var bot_bx := _get_track_bounds(Layout.TRACK_COUNT).x
-	var bot_y  := Layout.get_track_y(Layout.TRACK_COUNT) + 20.0
-
-	# Дуга з черги: квадратична bezier, кутова точка = (bot_bx, QUEUE_Y)
-	# Δx ≈ Δy → рівномірне заокруглення
-	var arc_start_x := bot_bx + (Layout.QUEUE_Y - bot_y)
+	# Горизонтальна черга до точки зупинки
 	_draw_rail_segment(
 		Vector2(get_viewport_rect().size.x, Layout.QUEUE_Y),
-		Vector2(arc_start_x, Layout.QUEUE_Y),
+		Vector2(Layout.QUEUE_ARC_X, Layout.QUEUE_Y),
 		rail_color
 	)
-	_draw_curved_rail(_quad_bezier(
-		Vector2(arc_start_x, Layout.QUEUE_Y),
-		Vector2(bot_bx,      Layout.QUEUE_Y),
-		Vector2(bot_bx,      bot_y)
-	), rail_color)
 
-	# Розподільна рейка: діагональні сегменти по лівому краю шестикутника
-	# Колія 7 → 6 → 5 → 4 → 3 → 2 → 1  (знизу вгору)
+	# Петля-дуга — ті самі точки що й для руху вагонів
+	_draw_curved_rail(Layout.get_entry_arc(), rail_color)
+
+	# Розподільна рейка — ті самі точки що й для руху вагонів
 	for i in range(Layout.TRACK_COUNT, 1, -1):
-		var ya  := Layout.get_track_y(i)
-		var yb  := Layout.get_track_y(i - 1)
-		var bxa := _get_track_bounds(i).x
-		var bxb := _get_track_bounds(i - 1).x
 		_draw_rail_segment(
-			Vector2(bxa, ya + 20),
-			Vector2(bxb, yb + 20),
+			Vector2(Layout.get_dist_rail_x(i),     Layout.get_track_y(i)     + 20.0),
+			Vector2(Layout.get_dist_rail_x(i - 1), Layout.get_track_y(i - 1) + 20.0),
 			thin_color
 		)
-
-
-func _quad_bezier(p0: Vector2, p1: Vector2, p2: Vector2,
-		steps: int = 32) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for i in range(steps + 1):
-		var t  := float(i) / steps
-		var mt := 1.0 - t
-		pts.append(mt * mt * p0 + 2.0 * mt * t * p1 + t * t * p2)
-	return pts
 
 
 func _draw_curved_rail(pts: PackedVector2Array, color: Color) -> void:
