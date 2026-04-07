@@ -15,15 +15,18 @@ func _ready() -> void:
 	_timers.fill(0.0)
 
 func _process(delta: float) -> void:
-	var any_busy := false
+	var needs_redraw := false
 	for i in MAX_LOCOS:
 		if _timers[i] > 0.0:
+			var prev_ceil := ceili(_timers[i])
 			var will_expire := _timers[i] <= delta
 			_timers[i] = maxf(0.0, _timers[i] - delta)
 			if will_expire:
 				availability_changed.emit(has_locomotive())
-			any_busy = true
-	if any_busy:
+				needs_redraw = true
+			elif ceili(_timers[i]) != prev_ceil:
+				needs_redraw = true
+	if needs_redraw:
 		queue_redraw()
 
 func has_locomotive() -> bool:

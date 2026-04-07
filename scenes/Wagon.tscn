@@ -1,24 +1,29 @@
 [gd_scene format=3 uid="uid://wagon0001"]
 
-[ext_resource type="Script" path="res://scripts/Wagon.gd" id="1_wagon"]
+[ext_resource type="Script" uid="uid://j1r6tlmtqc4n" path="res://scripts/Wagon.gd" id="1_wagon"]
+[ext_resource type="Texture2D" uid="uid://c2le03u0kmqig" path="res://assets/tank_car_12.png" id="2_8h24r"]
 
-[node name="Wagon" type="Node2D"]
+[node name="Wagon" type="Node2D" unique_id=1508730006]
 script = ExtResource("1_wagon")
 
-[node name="Shadow" type="ColorRect" parent="."]
+[node name="Shadow" type="ColorRect" parent="." unique_id=68043846]
+visible = false
 offset_left = -40.0
 offset_top = -27.0
 offset_right = 40.0
 offset_bottom = 27.0
 color = Color(0.9, 0.15, 0.15, 0.85)
-visible = false
 
-[node name="Body" type="ColorRect" parent="."]
+[node name="Body" type="ColorRect" parent="." unique_id=1185698945]
 offset_left = -33.0
 offset_top = -21.0
 offset_right = 33.0
 offset_bottom = 21.0
 color = Color(0.85, 0.25, 0.25, 1)
 
-[node name="BlinkTimer" type="Timer" parent="."]
+[node name="BlinkTimer" type="Timer" parent="." unique_id=1220443657]
 wait_time = 0.4
+
+[node name="TankCar12" type="Sprite2D" parent="." unique_id=1764708939]
+scale = Vector2(0.125, 0.125)
+texture = ExtResource("2_8h24r")

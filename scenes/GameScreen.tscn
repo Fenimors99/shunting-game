@@ -4,8 +4,8 @@
 [ext_resource type="Script" uid="uid://dabqi3bba2q0f" path="res://scripts/Queue.gd" id="1_o75v1"]
 [ext_resource type="Script" uid="uid://dbdlg3ncd13ym" path="res://scripts/Station.gd" id="3_osnef"]
 [ext_resource type="Script" uid="uid://bvyj1bi4hiflw" path="res://scripts/LocoDepot.gd" id="4_depot"]
-[ext_resource type="Script" uid="uid://task_manager_1" path="res://scripts/TaskManager.gd" id="5_taskmgr"]
-[ext_resource type="Script" uid="uid://task_panel_1" path="res://scripts/TaskPanel.gd" id="6_taskpanel"]
+[ext_resource type="Script" uid="uid://cw55ggxgro4fk" path="res://scripts/TaskManager.gd" id="5_taskmgr"]
+[ext_resource type="Script" uid="uid://c5sghcmm5bhsy" path="res://scripts/TaskPanel.gd" id="6_taskpanel"]
 
 [node name="GameScreen" type="Node2D" unique_id=184605156]
 script = ExtResource("1_gj13t")

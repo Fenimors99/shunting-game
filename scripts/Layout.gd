@@ -14,12 +14,25 @@ const TRACK_SPACING := 90.0
 const TRACK_COUNT   := 7
 
 const SPEED := 440.0
+
+# Відстань між центрами вагонів
+const WAGON_GAP := 95.0
+
+# Скільки вагонів видно знизу одразу
+const QUEUE_VISIBLE_LIMIT := 8
+
+# Раз на скільки секунд випускається новий вагон із-за екрана
+const QUEUE_SPAWN_INTERVAL := 1.0
+
+# Початкова X-позиція першого вагона
 const QUEUE_START_X := 1200.0
+
+# X-позиція появи нового вагона за правою межею екрана
+const QUEUE_OFFSCREEN_SPAWN_X := SCREEN_W + WAGON_GAP
 
 # Місткості колій — симетричний шестикутник навколо центральної колії
 const TRACK_CAPACITIES   := { 1: 4, 2: 5, 3: 6, 4: 7, 5: 6, 6: 5, 7: 4 }
 const MAX_TRACK_CAPACITY := 7   # місткість центральної (найдовшої) колії
-const WAGON_GAP          := 95.0
 
 static func get_track_y(track_index: int) -> float:
 	return TRACK_TOP + (track_index - 1) * TRACK_SPACING
