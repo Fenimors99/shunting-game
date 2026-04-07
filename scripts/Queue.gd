@@ -2,7 +2,6 @@ extends Node2D
 class_name WagonQueue
 
 const WAGON_SCENE := preload("res://scenes/Wagon.tscn")
-const WAGON_COUNT := 50
 
 signal wagon_entered_track(wagon: Wagon, track_index: int)
 signal queue_blocked(wagon: Wagon)
@@ -11,20 +10,11 @@ signal queue_unblocked()
 var _wagons: Array[Wagon] = []
 var _blocked: bool = false
 var _running: bool = false
-
-# Сколько вагонов ещё не выпущено в очередь
-var _wagons_left_to_spawn: int = 0
-
-# Таймер выпуска новых вагонов
 var _spawn_timer: float = 0.0
 
 
 func _ready() -> void:
-	# Сначала создаём только видимые вагоны
-	var initial_count := mini(WAGON_COUNT, Layout.QUEUE_VISIBLE_LIMIT)
-	_wagons_left_to_spawn = WAGON_COUNT - initial_count
-
-	for i in range(initial_count):
+	for i in Layout.QUEUE_VISIBLE_LIMIT:
 		_spawn_wagon(false)
 
 
@@ -137,7 +127,7 @@ func _spawn_wagon(spawn_offscreen: bool) -> void:
 
 
 func _try_spawn_by_timer(delta: float) -> void:
-	if _wagons_left_to_spawn <= 0:
+	if _wagons.size() >= Layout.QUEUE_VISIBLE_LIMIT:
 		return
 
 	_spawn_timer += delta
@@ -147,7 +137,6 @@ func _try_spawn_by_timer(delta: float) -> void:
 
 	_spawn_timer = 0.0
 	_spawn_wagon(true)
-	_wagons_left_to_spawn -= 1
 
 
 func get_front_wagon() -> Wagon:
