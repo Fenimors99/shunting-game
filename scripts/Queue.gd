@@ -102,25 +102,8 @@ func _create_random_wagon() -> Wagon:
 
 func _spawn_wagon(spawn_offscreen: bool) -> void:
 	var w: Wagon = _create_random_wagon()
-
-	var spawn_x: float
-
-	if _wagons.is_empty():
-		if spawn_offscreen:
-			spawn_x = Layout.QUEUE_OFFSCREEN_SPAWN_X
-		else:
-			spawn_x = Layout.QUEUE_START_X
-	else:
-		if spawn_offscreen:
-			# Новый вагон появляется не левее правой границы экрана
-			# и не ближе, чем WAGON_GAP к последнему вагону
-			spawn_x = maxf(
-				Layout.QUEUE_OFFSCREEN_SPAWN_X,
-				_wagons.back().position.x + Layout.WAGON_GAP
-			)
-		else:
-			spawn_x = _wagons.back().position.x + Layout.WAGON_GAP
-
+	var base_x := Layout.QUEUE_START_X if _wagons.is_empty() else _wagons.back().position.x + Layout.WAGON_GAP
+	var spawn_x := maxf(Layout.QUEUE_OFFSCREEN_SPAWN_X, base_x) if spawn_offscreen else base_x
 	w.position = Vector2(spawn_x, 0.0)
 	add_child(w)
 	_wagons.append(w)
