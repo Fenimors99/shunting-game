@@ -83,5 +83,7 @@ func _on_auth_success(user_info: Dictionary) -> void:
 
 func _on_auth_failed(error: String) -> void:
 	_btn_signin.disabled = false
+	if error.is_empty():
+		return
 	_label_status.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 	_label_status.text = "Помилка: %s" % error

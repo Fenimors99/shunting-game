@@ -38,7 +38,6 @@ func sign_in_with_google() -> void:
 			"photoURL":    ""
 		})
 		return
-	# If already signed in (redirect result missed by timing), emit success directly
 	var current = get_current_user()
 	if not current.is_empty():
 		auth_success.emit(current)
