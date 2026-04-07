@@ -17,7 +17,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 config/name="Sorting Simulator"
 config/description="Хакатон УЗ 2026 — Кейс 3"
 config/version="0.1.0"
-run/main_scene="res://scenes/GameScreen.tscn"
+run/main_scene="res://scenes/LoginScreen.tscn"
 config/features=PackedStringArray("4.6")
 
 [display]

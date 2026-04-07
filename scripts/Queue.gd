@@ -104,7 +104,7 @@ func _create_random_wagon() -> Wagon:
 		w.wagon_type = Wagon.WagonType.CARGO
 	else:
 		w.wagon_type = Wagon.WagonType.NORMAL
-		w._normal_color = Wagon.NORMAL_COLORS[randi() % Wagon.NORMAL_COLORS.size()]
+		w.color_id = randi() % Wagon.NORMAL_COLORS.size() as Wagon.WagonColorId
 
 	w.rotation = PI
 	return w
