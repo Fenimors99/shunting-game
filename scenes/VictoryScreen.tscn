@@ -1,6 +1,6 @@
-[gd_scene format=3 uid="uid://dgxs2h6hqfuis"]
+[gd_scene format=3 uid="uid://ceardr84d2kce"]
 
-[ext_resource type="Script" uid="uid://victory_gd_1" path="res://scripts/VictoryScreen.gd" id="1_victory"]
+[ext_resource type="Script" path="res://scripts/VictoryScreen.gd" id="1_victory"]
 
-[node name="VictoryScreen" type="Node2D"]
+[node name="VictoryScreen" type="Node2D" unique_id=687931054]
 script = ExtResource("1_victory")
