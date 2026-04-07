@@ -79,8 +79,7 @@ func _draw() -> void:
 	_draw_station_bg()
 	_draw_tracks()
 	_draw_junction_line()
-	_draw_exit_network()
-	_draw_wagon_depot()
+	_draw_exit_rails()
 
 func _draw_station_bg() -> void:
 	var top_y    := Layout.TRACK_TOP - 50.0
@@ -220,107 +219,13 @@ func _draw_rail_segment(from: Vector2, to: Vector2, color: Color) -> void:
 		draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 		dist += step
 		
-func _draw_exit_network() -> void:
-	var col_main   := Color(0.5, 0.6, 0.75, 0.65)
-	var col_cargo  := Color(0.88, 0.88, 0.88, 0.75)   # Погрузка — світла
-	var col_repair := COLOR_TRACK_REPAIR
-
-	# --- 1. Горизонтальні виходи з кожної колії до збірної рейки ---
+func _draw_exit_rails() -> void:
+	var rail_color := Color(0.5, 0.6, 0.75, 0.4)
 	for i in range(1, Layout.TRACK_COUNT + 1):
-		var y      := Layout.get_track_y(i)
-		var bx     := _get_track_bounds(i).y + 10.0
-		var col    := col_cargo if i == 1 else (col_repair if i == 7 else col_main)
-		_draw_rail_segment(Vector2(bx, y), Vector2(Layout.COLLECT_RAIL_X, y), col)
-
-	# --- 2. Вертикальна збірна рейка (колії 2–7) ---
-	_draw_rail_segment(
-		Vector2(Layout.COLLECT_RAIL_X, Layout.get_track_y(2)),
-		Vector2(Layout.COLLECT_RAIL_X, Layout.get_track_y(7)),
-		col_main
-	)
-
-	# --- 3. Колія 1 → Погрузка (вгору-вправо, за екран) ---
-	var t1y := Layout.get_track_y(1)
-	_draw_curved_rail(_cubic_bezier(
-		Vector2(Layout.COLLECT_RAIL_X, t1y),
-		Vector2(Layout.COLLECT_RAIL_X + 140, t1y - 80),
-		Vector2(Layout.COLLECT_RAIL_X + 320, t1y - 180),
-		Vector2(1920.0, t1y - 240)
-	), col_cargo)
-
-	# --- 4. Парк відправки (гілка від збірної ~колія 3, вгору-вправо, за екран) ---
-	var t3y := Layout.get_track_y(3)
-	_draw_curved_rail(_cubic_bezier(
-		Vector2(Layout.COLLECT_RAIL_X, t3y),
-		Vector2(Layout.COLLECT_RAIL_X + 110, t3y - 60),
-		Vector2(Layout.COLLECT_RAIL_X + 260, t3y - 140),
-		Vector2(1920.0, t3y - 180)
-	), col_main)
-
-	# --- 5. Колія 7 → Вагонне депо (вниз-вправо до депо) ---
-	var t7y := Layout.get_track_y(7)
-	var depot := Layout.WAGON_DEPOT_RECT
-	_draw_curved_rail(_cubic_bezier(
-		Vector2(Layout.COLLECT_RAIL_X, t7y),
-		Vector2(Layout.COLLECT_RAIL_X + 50, t7y + 30),
-		Vector2(depot.position.x - 30, depot.position.y + depot.size.y * 0.5),
-		Vector2(depot.position.x, depot.position.y + depot.size.y * 0.5)
-	), col_repair)
-
-	# --- 6. В чергу: від низу збірної рейки, крива вниз-ліво до черги ---
-	_draw_curved_rail(_cubic_bezier(
-		Vector2(Layout.COLLECT_RAIL_X, t7y + 20),
-		Vector2(Layout.COLLECT_RAIL_X - 100, t7y + 110),
-		Vector2(900.0, Layout.QUEUE_Y - 10),
-		Vector2(Layout.JUNCTION_X, Layout.QUEUE_Y)
-	), col_main)
-
-
-func _draw_wagon_depot() -> void:
-	var r    := Layout.WAGON_DEPOT_RECT
-	var font := ThemeDB.fallback_font
-	draw_rect(r, Color(0.12, 0.04, 0.04, 0.93))
-	draw_rect(r, Color(0.80, 0.20, 0.20, 0.75), false, 2.0)
-	draw_rect(Rect2(r.position + Vector2(2, 2), r.size - Vector2(4, 4)),
-		Color(0.90, 0.30, 0.30, 0.08), false, 1.0)
-	draw_string(font,
-		Vector2(r.position.x + 10, r.position.y + r.size.y * 0.62),
-		"Вагонне депо",
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 14,
-		Color(0.95, 0.55, 0.55, 0.95))
-
-
-# --- Допоміжні функції для кривих ---
-
-func _cubic_bezier(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2,
-		steps: int = 28) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for i in range(steps + 1):
-		var t  := float(i) / steps
-		var mt := 1.0 - t
-		pts.append(mt*mt*mt*p0 + 3.0*mt*mt*t*p1 + 3.0*mt*t*t*p2 + t*t*t*p3)
-	return pts
-
-
-func _draw_curved_rail(pts: PackedVector2Array, color: Color) -> void:
-	if pts.size() < 2:
-		return
-	var rail_off := 3.0
-	var pts_a    := PackedVector2Array()
-	var pts_b    := PackedVector2Array()
-	for i in range(pts.size()):
-		var dir: Vector2
-		if i == 0:
-			dir = (pts[1] - pts[0]).normalized()
-		elif i == pts.size() - 1:
-			dir = (pts[i] - pts[i - 1]).normalized()
-		else:
-			dir = (pts[i + 1] - pts[i - 1]).normalized()
-		var n := Vector2(-dir.y, dir.x)
-		pts_a.append(pts[i] + n * rail_off)
-		pts_b.append(pts[i] - n * rail_off)
-	draw_polyline(pts_a, color, 2.0)
-	draw_polyline(pts_b, color, 2.0)
+		var y := Layout.get_track_y(i)
+		var bounds := _get_track_bounds(i)
+		# Починаємо рейку виходу від зміщеного краю
+		draw_line(Vector2(bounds.y + 10, y), Vector2(Layout.STATION_RIGHT + 60, y), rail_color, 1.5)
 
 # --- Кнопки входу ---
 

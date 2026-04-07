@@ -48,18 +48,11 @@ static func get_slot_x(track_index: int, slot_index: int) -> float:
 	var offset = (capacity_diff / 2.0) * WAGON_GAP
 	return STATION_RIGHT - 33.0 - offset - slot_index * WAGON_GAP
 
-# X-позиція збірної вертикальної рейки виходу
-const COLLECT_RAIL_X := 1460.0
+const EXIT_LOADING_POS  := Vector2(2200.0,  540.0)
+const EXIT_REPAIR_POS   := Vector2(2200.0, 1250.0)
+const EXIT_SUBMIT_POS   := Vector2(2200.0, -200.0)
 
-# Вагонне депо (ремонт) — прямокутник на екрані, правіше колії 7
-const WAGON_DEPOT_RECT := Rect2(1530.0, 880.0, 210.0, 85.0)
-
-# Позиції призначень за екраном (для анімації руху)
-const EXIT_LOADING_POS := Vector2(1920.0,  200.0)   # Погрузка — вгору-вправо
-const EXIT_SUBMIT_POS  := Vector2(1920.0,  400.0)   # Парк відправки — вгору-вправо
-const EXIT_REPAIR_POS  := Vector2(1630.0,  922.0)   # Вагонне депо — центр rect
-
-const LOCO_DEPOT_RECT  := Rect2(1310.0, 800.0, 180.0, 75.0)
+const LOCO_DEPOT_RECT   := Rect2(1310.0, 800.0, 180.0, 75.0)
 
 static func is_wagon_compatible(wagon_type: Wagon.WagonType, track_index: int) -> bool:
 	match wagon_type:
