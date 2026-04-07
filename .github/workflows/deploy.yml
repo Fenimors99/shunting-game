@@ -29,12 +29,6 @@ jobs:
           mkdir -p build
           godot --headless --export-release "Web" build/index.html
 
-      - name: Add coi-serviceworker
-        run: |
-          curl -sL https://raw.githubusercontent.com/gzuidhof/coi-serviceworker/master/coi-serviceworker.min.js \
-            -o build/coi-serviceworker.min.js
-          sed -i 's|<head>|<head>\n    <script src="coi-serviceworker.min.js"></script>|' build/index.html
-
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
