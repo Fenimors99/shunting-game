@@ -166,37 +166,69 @@ func _draw_junction_line() -> void:
 	var rail_color := Color(0.5, 0.6, 0.75, 0.5)
 	var thin_color := COLOR_BORDER
 
+	# Пряма ділянка черги: від правого краю екрана до початку дуги
 	_draw_rail_segment(
 		Vector2(get_viewport_rect().size.x, Layout.QUEUE_Y),
-		Vector2(Layout.JUNCTION_X - 3, Layout.QUEUE_Y), 
+		Vector2(Layout.QUEUE_ARC_X, Layout.QUEUE_Y),
 		rail_color
 	)
 
-	var min_y = Layout.QUEUE_Y
-	var max_y = Layout.QUEUE_Y
-	
-	for i in range(1, Layout.TRACK_COUNT + 1):
-		var branch_connection_y = Layout.get_track_y(i) + 20
-		min_y = min(min_y, branch_connection_y)
-		max_y = max(max_y, branch_connection_y)
+	# Дуга: плавний поворот від черги вгору до вертикального розподільника
+	var arc_end_y := Layout.get_track_y(Layout.TRACK_COUNT) + 20.0
+	_draw_curved_rail(_quad_bezier(
+		Vector2(Layout.QUEUE_ARC_X, Layout.QUEUE_Y),
+		Vector2(Layout.JUNCTION_X,  Layout.QUEUE_Y),
+		Vector2(Layout.JUNCTION_X,  arc_end_y)
+	), rail_color)
 
+	# Вертикальна рейка від колії 7 вгору до колії 1
 	_draw_rail_segment(
-		Vector2(Layout.JUNCTION_X, min_y),
-		Vector2(Layout.JUNCTION_X, max_y),
+		Vector2(Layout.JUNCTION_X, arc_end_y),
+		Vector2(Layout.JUNCTION_X, Layout.get_track_y(1) + 20),
 		thin_color
 	)
-	
-	for i in range(1, Layout.TRACK_COUNT + 1):
-		var y := Layout.get_track_y(i)
-		var bounds := _get_track_bounds(i)
-		var start := Vector2(Layout.JUNCTION_X, y + 20)
-		var mid := Vector2(Layout.JUNCTION_X + 40, y)
-		# Тягнемо рейку до зміщеного початку колії
-		var end := Vector2(bounds.x - 10, y) 
 
+	# Розгалуження до кожної колії
+	for i in range(1, Layout.TRACK_COUNT + 1):
+		var y      := Layout.get_track_y(i)
+		var bounds := _get_track_bounds(i)
+		var start  := Vector2(Layout.JUNCTION_X,      y + 20)
+		var mid    := Vector2(Layout.JUNCTION_X + 40, y)
+		var end    := Vector2(bounds.x - 10,          y)
 		_draw_rail_segment(start, mid, thin_color)
-		_draw_rail_segment(mid, end, thin_color)
-		
+		_draw_rail_segment(mid,   end, thin_color)
+
+
+func _quad_bezier(p0: Vector2, p1: Vector2, p2: Vector2,
+		steps: int = 32) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in range(steps + 1):
+		var t  := float(i) / steps
+		var mt := 1.0 - t
+		pts.append(mt * mt * p0 + 2.0 * mt * t * p1 + t * t * p2)
+	return pts
+
+
+func _draw_curved_rail(pts: PackedVector2Array, color: Color) -> void:
+	if pts.size() < 2:
+		return
+	var pts_a := PackedVector2Array()
+	var pts_b := PackedVector2Array()
+	for i in range(pts.size()):
+		var dir: Vector2
+		if i == 0:
+			dir = (pts[1] - pts[0]).normalized()
+		elif i == pts.size() - 1:
+			dir = (pts[i] - pts[i - 1]).normalized()
+		else:
+			dir = (pts[i + 1] - pts[i - 1]).normalized()
+		var n := Vector2(-dir.y, dir.x)
+		pts_a.append(pts[i] + n * 3.0)
+		pts_b.append(pts[i] - n * 3.0)
+	draw_polyline(pts_a, color, 2.0)
+	draw_polyline(pts_b, color, 2.0)
+
+
 func _draw_rail_segment(from: Vector2, to: Vector2, color: Color) -> void:
 	var dir := (to - from).normalized()
 	var normal := Vector2(-dir.y, dir.x)
