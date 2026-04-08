@@ -88,14 +88,23 @@ func _create_start_button() -> void:
 	_create_timer_label() # Додаємо цей рядок
 	
 func _create_timer_label() -> void:
+	var W := 210.0
+	var H := 62.0
+	var box := Node2D.new()
+	box.z_index = 1
+	box.position = Vector2(16, 16)
+	box.connect("draw", func():
+		box.draw_rect(Rect2(0, 0, W, H), Color(0.06, 0.09, 0.15, 0.96))
+		box.draw_rect(Rect2(0, 0, W, H), Color(0.30, 0.45, 0.65, 0.8), false, 2.0)
+		box.draw_rect(Rect2(2, 2, W - 4, H - 4), Color(0.50, 0.65, 0.85, 0.10), false, 1.0)
+	)
 	_timer_label = Label.new()
-	_timer_label.position = Vector2(20, 20) # Розміщення в лівому верхньому кутку
+	_timer_label.position = Vector2(12, 10)
 	_timer_label.add_theme_font_size_override("font_size", 36)
-	_timer_label.add_theme_color_override("font_color", Color.WHITE)
-	_timer_label.add_theme_color_override("font_outline_color", Color(0.1, 0.1, 0.1, 0.8))
-	_timer_label.add_theme_constant_override("outline_size", 6)
+	_timer_label.add_theme_color_override("font_color", Color(0.80, 0.88, 1.00, 0.95))
 	_timer_label.text = "Час: 00:00"
-	add_child(_timer_label)
+	box.add_child(_timer_label)
+	add_child(box)
 
 func _process(delta: float) -> void:
 	if _timer_running:
