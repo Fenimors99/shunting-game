@@ -166,37 +166,53 @@ func _draw_junction_line() -> void:
 	var rail_color := Color(0.5, 0.6, 0.75, 0.5)
 	var thin_color := COLOR_BORDER
 
+	# 1. Горизонтальна черга до початку L-повороту
 	_draw_rail_segment(
 		Vector2(get_viewport_rect().size.x, Layout.QUEUE_Y),
-		Vector2(Layout.JUNCTION_X - 3, Layout.QUEUE_Y), 
+		Vector2(Layout.QUEUE_STOP_X + Layout.QUEUE_ARC_R, Layout.QUEUE_Y),
 		rail_color
 	)
 
-	var min_y = Layout.QUEUE_Y
-	var max_y = Layout.QUEUE_Y
-	
-	for i in range(1, Layout.TRACK_COUNT + 1):
-		var branch_connection_y = Layout.get_track_y(i) + 20
-		min_y = min(min_y, branch_connection_y)
-		max_y = max(max_y, branch_connection_y)
+	# 2. Дуга від черги до центру (колія 4)
+	_draw_curved_rail(Layout.get_entry_arc(), rail_color)
 
-	_draw_rail_segment(
-		Vector2(Layout.JUNCTION_X, min_y),
-		Vector2(Layout.JUNCTION_X, max_y),
-		thin_color
-	)
-	
-	for i in range(1, Layout.TRACK_COUNT + 1):
-		var y := Layout.get_track_y(i)
-		var bounds := _get_track_bounds(i)
-		var start := Vector2(Layout.JUNCTION_X, y + 20)
-		var mid := Vector2(Layout.JUNCTION_X + 40, y)
-		# Тягнемо рейку до зміщеного початку колії
-		var end := Vector2(bounds.x - 10, y) 
+	# 3. Верхня гілка: центр (колія 4) → колія 3 → 2 → 1
+	for i in range(Layout.CENTER_TRACK - 1, 0, -1):
+		_draw_rail_segment(
+			Vector2(Layout.get_dist_rail_x(i + 1), Layout.get_track_y(i + 1)),
+			Vector2(Layout.get_dist_rail_x(i),     Layout.get_track_y(i)),
+			thin_color
+		)
 
-		_draw_rail_segment(start, mid, thin_color)
-		_draw_rail_segment(mid, end, thin_color)
-		
+	# 4. Нижня гілка: центр (колія 4) → колія 5 → 6 → 7
+	for i in range(Layout.CENTER_TRACK + 1, Layout.TRACK_COUNT + 1):
+		_draw_rail_segment(
+			Vector2(Layout.get_dist_rail_x(i - 1), Layout.get_track_y(i - 1)),
+			Vector2(Layout.get_dist_rail_x(i),     Layout.get_track_y(i)),
+			thin_color
+		)
+
+
+func _draw_curved_rail(pts: PackedVector2Array, color: Color) -> void:
+	if pts.size() < 2:
+		return
+	var pts_a := PackedVector2Array()
+	var pts_b := PackedVector2Array()
+	for i in range(pts.size()):
+		var dir: Vector2
+		if i == 0:
+			dir = (pts[1] - pts[0]).normalized()
+		elif i == pts.size() - 1:
+			dir = (pts[i] - pts[i - 1]).normalized()
+		else:
+			dir = (pts[i + 1] - pts[i - 1]).normalized()
+		var n := Vector2(-dir.y, dir.x)
+		pts_a.append(pts[i] + n * 3.0)
+		pts_b.append(pts[i] - n * 3.0)
+	draw_polyline(pts_a, color, 2.0)
+	draw_polyline(pts_b, color, 2.0)
+
+
 func _draw_rail_segment(from: Vector2, to: Vector2, color: Color) -> void:
 	var dir := (to - from).normalized()
 	var normal := Vector2(-dir.y, dir.x)
@@ -308,6 +324,11 @@ func set_loco_available(available: bool) -> void:
 		_refresh_exit_button(i)
 
 func _refresh_exit_button(track_index: int) -> void:
+	# Якщо меню зараз відкрите (кнопка червона), ігноруємо оновлення стану, 
+	# щоб гравець завжди міг закрити меню.
+	if _choice_containers[track_index - 1].visible:
+		return
+		
 	var parked: int = get_wagon_count(track_index)
 	var in_transit: bool = _track_reserved[track_index - 1] > parked
 	_exit_buttons[track_index - 1].disabled = parked == 0 or in_transit or not _loco_available
@@ -316,7 +337,11 @@ func _on_exit_pressed(track_index: int) -> void:
 	if track_index == 1 or track_index == 7:
 		track_exit_tapped.emit(track_index)
 	else:
-		_show_choice(track_index)
+		# Перевіряємо, чи вже відкрите меню для цієї колії
+		if _choice_containers[track_index - 1].visible:
+			_hide_choice(track_index)
+		else:
+			_show_choice(track_index)
 
 # --- Вибір напрямку (колії 2-6) ---
 
@@ -346,17 +371,36 @@ func _create_choice_containers() -> void:
 		var idx := i
 		btn_s.pressed.connect(func(): _on_choice(idx, true))
 		btn_q.pressed.connect(func(): _on_choice(idx, false))
+		
+
+func _hide_choice(track_index: int) -> void:
+	_choice_containers[track_index - 1].visible = false
+	
+	# --- ПОВЕРТАЄМО ЗЕЛЕНИЙ КОЛІР ---
+	var btn: Button = _exit_buttons[track_index - 1]
+	btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.1, 0.45, 0.15, 0.9)))
+	btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.2, 0.7, 0.25)))
+	btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.05, 0.3, 0.1)))
+	
+	# Оновлюємо її стан (блокуємо, якщо вагонів немає)
+	_refresh_exit_button(track_index)
 
 func _show_choice(track_index: int) -> void:
 	_choice_containers[track_index - 1].visible = true
-	_exit_buttons[track_index - 1].disabled = true
+	
+	# --- РОБИМО КНОПКУ ЧЕРВОНОЮ ---
+	var btn: Button = _exit_buttons[track_index - 1]
+	btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.8, 0.2, 0.2, 0.9)))
+	btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.9, 0.3, 0.3)))
+	btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.6, 0.1, 0.1)))
+	
 	# "Здати ✓" доступна тільки якщо вагони точно закривають одне завдання
 	var btn_s: Button = _submit_buttons[track_index - 1]
 	if btn_s != null and _task_manager != null:
 		btn_s.disabled = not _task_manager.can_submit(_track_wagons[track_index - 1])
 
 func _on_choice(track_index: int, submit: bool) -> void:
-	_choice_containers[track_index - 1].visible = false
+	_hide_choice(track_index) # Ховаємо меню і скидаємо колір кнопки
 	track_exit_choice.emit(track_index, submit)
 
 func _make_choice_btn(label: String, color: Color) -> Button:
