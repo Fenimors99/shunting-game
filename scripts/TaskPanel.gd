@@ -15,20 +15,23 @@ var _pos_open:   float
 var _pos_closed: float
 
 func _ready() -> void:
+	z_index = 1  # поверх вагонів (z=0)
 	var vp := get_viewport_rect().size
 	_pos_open   = vp.x - PANEL_W
 	_pos_closed = vp.x
 	position.x  = _pos_open
-	position.y  = (vp.y - PANEL_H) / 2.0
+	position.y  = 0.0  # правий верхній кут
 
 # Викликається з GameScreen після того як вузли готові.
 # tm    — менеджер завдань
 # btn   — кнопка-тоггл, оголошена в сцені як сиблінг (не дочірній вузол панелі)
 func init(tm: TaskManager, btn: Button) -> void:
 	_task_manager = tm
-	_toggle_btn   = btn
+	_toggle_btn          = btn
+	_toggle_btn.z_index  = 2  # поверх панелі (z=1)
 	_task_manager.task_completed.connect(func(_i): queue_redraw())
 	_apply_toggle_style()
+	_toggle_btn.position = Vector2(_pos_open - TOGGLE_W, (PANEL_H - TOGGLE_H) / 2.0)
 	_toggle_btn.pressed.connect(_toggle)
 	queue_redraw()
 
@@ -122,4 +125,5 @@ func _toggle() -> void:
 	var tween := create_tween()
 	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tween.tween_property(self, "position:x", target_x, 0.3)
+	tween.parallel().tween_property(_toggle_btn, "position:x", target_x - TOGGLE_W, 0.3)
 	tween.tween_callback(func(): _tweening = false)
