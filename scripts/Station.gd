@@ -33,6 +33,16 @@ func _ready() -> void:
 	_create_entry_buttons()
 	_create_exit_buttons()
 	_create_choice_containers()
+	_create_repair_depot_roof()
+
+func _create_repair_depot_roof() -> void:
+	var roof := Node2D.new()
+	roof.z_index = 1  # один рівень над рейками/вагонами що на z=0
+	roof.connect("draw", func():
+		roof.draw_rect(Layout.REPAIR_DEPOT_RECT, Color(0.9, 0.2, 0.2, 1.0), true)
+		roof.draw_rect(Layout.REPAIR_DEPOT_RECT, Color(0.7, 0.1, 0.1, 1.0), false, 2.0)
+	)
+	add_child(roof)
 
 # Розраховує (start_x, end_x) рейок для колії відносно центральної (найдовшої).
 # Коротші колії симетрично зміщені всередину, формуючи шестикутник.
@@ -236,12 +246,63 @@ func _draw_rail_segment(from: Vector2, to: Vector2, color: Color) -> void:
 		dist += step
 		
 func _draw_exit_rails() -> void:
-	var rail_color := Color(0.5, 0.6, 0.75, 0.4)
+	var rail_color := Color(0.5, 0.6, 0.75, 0.5)
+	var thin_color := COLOR_BORDER
+
+	# 1. Горизонтальні відрізки від правого краю кожної колії до збірної рейки
 	for i in range(1, Layout.TRACK_COUNT + 1):
 		var y := Layout.get_track_y(i)
 		var bounds := _get_track_bounds(i)
-		# Починаємо рейку виходу від зміщеного краю
-		draw_line(Vector2(bounds.y + 10, y), Vector2(Layout.STATION_RIGHT + 60, y), rail_color, 1.5)
+		_draw_rail_segment(
+			Vector2(bounds.y, y),
+			Vector2(Layout.get_exit_rail_x(i), y),
+			rail_color
+		)
+
+	# 2. Збірна рейка: верхня гілка (колія 3→2→1)
+	for i in range(Layout.CENTER_TRACK - 1, 0, -1):
+		_draw_rail_segment(
+			Vector2(Layout.get_exit_rail_x(i + 1), Layout.get_track_y(i + 1)),
+			Vector2(Layout.get_exit_rail_x(i),     Layout.get_track_y(i)),
+			thin_color
+		)
+
+	# 3. Збірна рейка: нижня гілка (колія 5→6→7)
+	for i in range(Layout.CENTER_TRACK + 1, Layout.TRACK_COUNT + 1):
+		_draw_rail_segment(
+			Vector2(Layout.get_exit_rail_x(i - 1), Layout.get_track_y(i - 1)),
+			Vector2(Layout.get_exit_rail_x(i),     Layout.get_track_y(i)),
+			thin_color
+		)
+
+	# 3.4. Вихід колії 1: дуга право→вгору + вертикаль за екран
+	var arc1 := Layout.get_track1_exit_arc()
+	_draw_curved_rail(arc1, rail_color)
+	var arc1_end := arc1[arc1.size() - 1]
+	_draw_rail_segment(arc1_end, Vector2(arc1_end.x, 0.0), rail_color)
+
+	# 3.5. Пряма гілка від колії 7 до ремонтного депо
+	var track7_y := Layout.get_track_y(7)
+	var fork_x   := Layout.get_exit_rail_x(7)
+	_draw_rail_segment(
+		Vector2(fork_x, track7_y),
+		Vector2(Layout.REPAIR_DEPOT_RECT.position.x, track7_y),
+		rail_color
+	)
+
+	# 3.6. Пряма здачі завдань: від центру (колія 4) вправо за екран
+	var center4 := Layout.get_exit_center_point()
+	_draw_rail_segment(center4, Vector2(get_viewport_rect().size.x, center4.y), rail_color)
+
+	# 4. Вихідна дуга
+	_draw_curved_rail(Layout.get_exit_arc(), rail_color)
+
+	# 5. Горизонталь від кінця дуги до правого краю екрана
+	_draw_rail_segment(
+		Vector2(Layout.EXIT_STOP_X + Layout.QUEUE_ARC_R, Layout.QUEUE_Y),
+		Vector2(get_viewport_rect().size.x, Layout.QUEUE_Y),
+		rail_color
+	)
 
 # --- Кнопки входу ---
 
