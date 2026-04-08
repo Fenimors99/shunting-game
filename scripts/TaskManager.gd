@@ -6,8 +6,8 @@ signal all_tasks_completed()
 
 # Кожне завдання — словник { WagonColorId: кількість }
 const TASKS: Array = [
-	{ Wagon.WagonColorId.GREEN: 1 },
-	{ Wagon.WagonColorId.YELLOW: 1 },
+	{ Wagon.WagonColorId.BLUE: 4, Wagon.WagonColorId.GREEN: 1 },
+	{ Wagon.WagonColorId.BLUE: 2, Wagon.WagonColorId.GREEN: 3, Wagon.WagonColorId.YELLOW: 1 },
 ]
 
 var _completed: Array[bool] = []
