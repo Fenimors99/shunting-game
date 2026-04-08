@@ -16,6 +16,8 @@ const STATION_RIGHT := 1280.0
 const TRACK_TOP     := 305.0
 const TRACK_SPACING := 90.0
 const TRACK_COUNT   := 7
+const CARGO_TRACK   := 1
+const REPAIR_TRACK  := 7
 
 const SPEED := 440.0
 

@@ -16,23 +16,24 @@ func _ready() -> void:
 	_completed.resize(TASKS.size())
 	_completed.fill(false)
 
-# Чи можна здати саме ці вагони (точна відповідність одному незакритому завданню)
 func can_submit(wagons: Array) -> bool:
-	var actual := _count_colors(wagons)
-	for i in TASKS.size():
-		if not _completed[i] and actual == TASKS[i]:
-			return true
-	return false
+	return _find_matching_task(wagons) != -1
 
 # Позначає відповідне завдання виконаним. Повертає індекс або -1.
 func submit(wagons: Array) -> int:
+	var i := _find_matching_task(wagons)
+	if i == -1:
+		return -1
+	_completed[i] = true
+	task_completed.emit(i)
+	if _completed.all(func(v): return v):
+		all_tasks_completed.emit()
+	return i
+
+func _find_matching_task(wagons: Array) -> int:
 	var actual := _count_colors(wagons)
 	for i in TASKS.size():
 		if not _completed[i] and actual == TASKS[i]:
-			_completed[i] = true
-			task_completed.emit(i)
-			if _completed.all(func(v): return v):
-				all_tasks_completed.emit()
 			return i
 	return -1
 

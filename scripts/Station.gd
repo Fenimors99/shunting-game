@@ -62,7 +62,7 @@ func reserve_slot(track_index: int) -> int:
 func place_wagon(wagon: Wagon, track_index: int, slot: int) -> void:
 	_track_wagons[track_index - 1].append(wagon)
 	# Передаємо track_index для правильного зміщення
-	wagon.position = Vector2(Layout.get_slot_x(track_index, slot), get_track_y(track_index))
+	wagon.position = Vector2(Layout.get_slot_x(track_index, slot), Layout.get_track_y(track_index))
 	_refresh_exit_button(track_index)
 
 func pop_all_wagons(track_index: int) -> Array:
@@ -79,9 +79,6 @@ func is_track_full(track_index: int) -> bool:
 
 func get_wagon_count(track_index: int) -> int:
 	return _track_wagons[track_index - 1].size()
-
-func get_track_y(track_index: int) -> float:
-	return Layout.get_track_y(track_index)
 
 # --- Малювання ---
 
@@ -362,15 +359,13 @@ func _create_exit_buttons() -> void:
 		btn.custom_minimum_size = Vector2(52, 52)
 		# Зміщуємо кнопку паралельно межі шестикутника
 		btn.position = Vector2(bounds.y + 40, y - 26)
-		btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.1, 0.45, 0.15, 0.9)))
-		btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.2, 0.7, 0.25)))
-		btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.05, 0.3, 0.1)))
 		btn.add_theme_color_override("font_color", Color.WHITE)
 		btn.disabled = true
 		var idx := i
 		btn.pressed.connect(func(): _on_exit_pressed(idx))
 		add_child(btn)
 		_exit_buttons.append(btn)
+		_set_exit_btn_green(i)
 
 func set_task_manager(tm: TaskManager) -> void:
 	_task_manager = tm
@@ -385,9 +380,12 @@ func set_loco_available(available: bool) -> void:
 		_refresh_exit_button(i)
 
 func _refresh_exit_button(track_index: int) -> void:
-	# Якщо меню зараз відкрите (кнопка червона), ігноруємо оновлення стану, 
-	# щоб гравець завжди міг закрити меню.
+	# Якщо меню зараз відкрите — оновлюємо кнопку "Здати" під актуальний склад колії,
+	# але не чіпаємо саму кнопку-стрілку (щоб гравець міг закрити меню).
 	if _choice_containers[track_index - 1].visible:
+		var btn_s: Button = _submit_buttons[track_index - 1]
+		if btn_s != null and _task_manager != null:
+			btn_s.disabled = not _task_manager.can_submit(_track_wagons[track_index - 1])
 		return
 		
 	var parked: int = get_wagon_count(track_index)
@@ -395,7 +393,7 @@ func _refresh_exit_button(track_index: int) -> void:
 	_exit_buttons[track_index - 1].disabled = parked == 0 or in_transit or not _loco_available
 
 func _on_exit_pressed(track_index: int) -> void:
-	if track_index == 1 or track_index == 7:
+	if track_index == Layout.CARGO_TRACK or track_index == Layout.REPAIR_TRACK:
 		track_exit_tapped.emit(track_index)
 	else:
 		# Перевіряємо, чи вже відкрите меню для цієї колії
@@ -413,7 +411,7 @@ func _create_choice_containers() -> void:
 		add_child(container)
 		_choice_containers.append(container)
 
-		if i == 1 or i == 7:
+		if i == Layout.CARGO_TRACK or i == Layout.REPAIR_TRACK:
 			continue
 
 		var y := Layout.get_track_y(i)
@@ -436,24 +434,12 @@ func _create_choice_containers() -> void:
 
 func _hide_choice(track_index: int) -> void:
 	_choice_containers[track_index - 1].visible = false
-	
-	# --- ПОВЕРТАЄМО ЗЕЛЕНИЙ КОЛІР ---
-	var btn: Button = _exit_buttons[track_index - 1]
-	btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.1, 0.45, 0.15, 0.9)))
-	btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.2, 0.7, 0.25)))
-	btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.05, 0.3, 0.1)))
-	
-	# Оновлюємо її стан (блокуємо, якщо вагонів немає)
+	_set_exit_btn_green(track_index)
 	_refresh_exit_button(track_index)
 
 func _show_choice(track_index: int) -> void:
 	_choice_containers[track_index - 1].visible = true
-	
-	# --- РОБИМО КНОПКУ ЧЕРВОНОЮ ---
-	var btn: Button = _exit_buttons[track_index - 1]
-	btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.8, 0.2, 0.2, 0.9)))
-	btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.9, 0.3, 0.3)))
-	btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.6, 0.1, 0.1)))
+	_set_exit_btn_red(track_index)
 	
 	# "Здати ✓" доступна тільки якщо вагони точно закривають одне завдання
 	var btn_s: Button = _submit_buttons[track_index - 1]
@@ -480,6 +466,18 @@ func _make_choice_btn(label: String, color: Color) -> Button:
 	btn.add_theme_color_override("font_color", Color.WHITE)
 	btn.add_theme_font_size_override("font_size", 20)
 	return btn
+
+func _set_exit_btn_green(track_index: int) -> void:
+	var btn: Button = _exit_buttons[track_index - 1]
+	btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.1, 0.45, 0.15, 0.9)))
+	btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.2, 0.7, 0.25)))
+	btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.05, 0.3, 0.1)))
+
+func _set_exit_btn_red(track_index: int) -> void:
+	var btn: Button = _exit_buttons[track_index - 1]
+	btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.8, 0.2, 0.2, 0.9)))
+	btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.9, 0.3, 0.3)))
+	btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.6, 0.1, 0.1)))
 
 func _make_circle_style(color: Color) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
