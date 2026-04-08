@@ -290,6 +290,10 @@ func _draw_exit_rails() -> void:
 		rail_color
 	)
 
+	# 3.6. Пряма здачі завдань: від центру (колія 4) вправо за екран
+	var center4 := Layout.get_exit_center_point()
+	_draw_rail_segment(center4, Vector2(get_viewport_rect().size.x, center4.y), rail_color)
+
 	# 4. Вихідна дуга
 	_draw_curved_rail(Layout.get_exit_arc(), rail_color)
 

@@ -135,7 +135,10 @@ func _on_track_exit_choice(track_index: int, submit: bool) -> void:
 	var wagons: Array = station.pop_all_wagons(track_index)
 	if submit:
 		task_manager.submit(wagons)
-		_animate_exit(wagons, track_index)
+		if track_index == Layout.CENTER_TRACK:
+			_animate_submit(wagons)
+		else:
+			_animate_exit(wagons, track_index)
 	else:
 		_return_to_queue(wagons, track_index)
 
@@ -186,6 +189,20 @@ func _return_to_queue(wagons: Array, track_index: int) -> void:
 				wagon.rotation = PI
 				queue.receive_wagon(wagon)
 			)
+		)
+
+func _animate_submit(wagons: Array) -> void:
+	var dest_y := Layout.get_track_y(Layout.CENTER_TRACK)
+	for i in wagons.size():
+		var wagon: Wagon = wagons[i]
+		var pts := PackedVector2Array()
+		pts.append(wagon.position)
+		pts.append(Vector2(Layout.SCREEN_W + Layout.WAGON_GAP, dest_y))
+		var idx := i
+		var delay_tween := create_tween()
+		delay_tween.tween_interval(idx * 0.18)
+		delay_tween.tween_callback(func():
+			_animate_along_path(wagon, pts, wagon.queue_free)
 		)
 
 func _animate_to_loading(wagons: Array) -> void:
