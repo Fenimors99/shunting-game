@@ -190,10 +190,7 @@ func _on_track_exit_choice(track_index: int, submit: bool) -> void:
 	var wagons: Array = station.pop_all_wagons(track_index)
 	if submit:
 		task_manager.submit(wagons)
-		if track_index == Layout.CENTER_TRACK:
-			_animate_submit(wagons)
-		else:
-			_animate_exit(wagons, track_index)
+		_animate_submit(wagons, track_index)
 	else:
 		_return_to_queue(wagons, track_index)
 
@@ -246,13 +243,22 @@ func _return_to_queue(wagons: Array, track_index: int) -> void:
 			)
 		)
 
-func _animate_submit(wagons: Array) -> void:
-	var dest_y := Layout.get_track_y(Layout.CENTER_TRACK)
+func _animate_submit(wagons: Array, track_index: int) -> void:
+	var center_y := Layout.get_track_y(Layout.CENTER_TRACK)
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
+		# Той самий шлях що _animate_exit: збірна рейка → центр,
+		# але замість дуги — пряма вправо по рейці здачі
 		var pts := PackedVector2Array()
 		pts.append(wagon.position)
-		pts.append(Vector2(Layout.SCREEN_W + Layout.WAGON_GAP, dest_y))
+		pts.append(Vector2(Layout.get_exit_rail_x(track_index), Layout.get_track_y(track_index)))
+		if track_index < Layout.CENTER_TRACK:
+			for j in range(track_index + 1, Layout.CENTER_TRACK + 1):
+				pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
+		elif track_index > Layout.CENTER_TRACK:
+			for j in range(track_index - 1, Layout.CENTER_TRACK - 1, -1):
+				pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
+		pts.append(Vector2(Layout.SCREEN_W + Layout.WAGON_GAP, center_y))
 		var idx := i
 		var delay_tween := create_tween()
 		delay_tween.tween_interval(idx * 0.18)
