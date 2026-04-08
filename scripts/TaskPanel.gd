@@ -27,7 +27,8 @@ func _ready() -> void:
 # btn   — кнопка-тоггл, оголошена в сцені як сиблінг (не дочірній вузол панелі)
 func init(tm: TaskManager, btn: Button) -> void:
 	_task_manager = tm
-	_toggle_btn   = btn
+	_toggle_btn          = btn
+	_toggle_btn.z_index  = 2  # поверх панелі (z=1)
 	_task_manager.task_completed.connect(func(_i): queue_redraw())
 	_apply_toggle_style()
 	_toggle_btn.pressed.connect(_toggle)
