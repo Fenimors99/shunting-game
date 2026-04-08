@@ -166,21 +166,29 @@ func _draw_junction_line() -> void:
 	var rail_color := Color(0.5, 0.6, 0.75, 0.5)
 	var thin_color := COLOR_BORDER
 
-	# Горизонтальна черга до точки зупинки
+	# 1. Горизонтальна черга до початку L-повороту
 	_draw_rail_segment(
 		Vector2(get_viewport_rect().size.x, Layout.QUEUE_Y),
-		Vector2(Layout.QUEUE_ARC_X, Layout.QUEUE_Y),
+		Vector2(Layout.QUEUE_STOP_X + Layout.QUEUE_ARC_R, Layout.QUEUE_Y),
 		rail_color
 	)
 
-	# Петля-дуга — ті самі точки що й для руху вагонів
+	# 2. Дуга від черги до центру (колія 4)
 	_draw_curved_rail(Layout.get_entry_arc(), rail_color)
 
-	# Розподільна рейка — ті самі точки що й для руху вагонів
-	for i in range(Layout.TRACK_COUNT, 1, -1):
+	# 3. Верхня гілка: центр (колія 4) → колія 3 → 2 → 1
+	for i in range(Layout.CENTER_TRACK - 1, 0, -1):
 		_draw_rail_segment(
-			Vector2(Layout.get_dist_rail_x(i),     Layout.get_track_y(i)     + 20.0),
-			Vector2(Layout.get_dist_rail_x(i - 1), Layout.get_track_y(i - 1) + 20.0),
+			Vector2(Layout.get_dist_rail_x(i + 1), Layout.get_track_y(i + 1)),
+			Vector2(Layout.get_dist_rail_x(i),     Layout.get_track_y(i)),
+			thin_color
+		)
+
+	# 4. Нижня гілка: центр (колія 4) → колія 5 → 6 → 7
+	for i in range(Layout.CENTER_TRACK + 1, Layout.TRACK_COUNT + 1):
+		_draw_rail_segment(
+			Vector2(Layout.get_dist_rail_x(i - 1), Layout.get_track_y(i - 1)),
+			Vector2(Layout.get_dist_rail_x(i),     Layout.get_track_y(i)),
 			thin_color
 		)
 

@@ -7,10 +7,12 @@ extends Node2D
 @onready var task_panel:         TaskPanel   = $TaskPanel
 @onready var task_toggle_button: Button      = $TaskToggleButton
 
+# Вагон, що стоїть в центральній точці і чекає призначення на колію
+var _wagon_at_center: Wagon = null
+
 func _ready() -> void:
 	queue.position.y = Layout.QUEUE_Y
-	queue.wagon_entered_track.connect(_on_wagon_entered_track)
-	queue.queue_blocked.connect(_on_queue_blocked)
+	queue.wagon_at_center.connect(_on_wagon_at_center)
 	queue.queue_unblocked.connect(_on_queue_unblocked)
 	station.track_entry_tapped.connect(_on_track_entry_tapped)
 	station.track_exit_tapped.connect(_on_track_exit_tapped)
@@ -29,6 +31,15 @@ func _ready() -> void:
 
 func _on_all_tasks_completed() -> void:
 	get_tree().change_scene_to_file("res://scenes/VictoryScreen.tscn")
+
+# Вагон доїхав до центру по кривій черзі — чекає призначення на колію
+func _on_wagon_at_center(wagon: Wagon) -> void:
+	_wagon_at_center = wagon
+	wagon.start_blocking()
+	station.set_entry_filter(wagon.wagon_type)
+
+func _on_queue_unblocked() -> void:
+	station.clear_entry_filter()
 
 func _create_start_button() -> void:
 	var btn := Button.new()
@@ -63,25 +74,19 @@ func _on_start_pressed(btn: Button) -> void:
 	btn.queue_free()
 	queue.start()
 
-func _on_queue_blocked(wagon: Wagon) -> void:
-	station.set_entry_filter(wagon.wagon_type)
-
-func _on_queue_unblocked() -> void:
-	station.clear_entry_filter()
-
 func _on_track_entry_tapped(track_index: int) -> void:
-	if not queue.is_blocked():
+	if _wagon_at_center == null:
 		return
 	if station.is_track_full(track_index):
 		return
-	var wagon := queue.get_front_wagon()
-	if wagon and not Layout.is_wagon_compatible(wagon.wagon_type, track_index):
+	if not Layout.is_wagon_compatible(_wagon_at_center.wagon_type, track_index):
 		return
-	queue.resolve_block(track_index)
-
-func _on_wagon_entered_track(wagon: Wagon, track_index: int) -> void:
+	var wagon := _wagon_at_center
+	_wagon_at_center = null
+	wagon.stop_blocking()
+	queue.unblock()
 	var slot: int = station.reserve_slot(track_index)
-	var path := Layout.get_entry_path(track_index, slot)
+	var path := Layout.get_track_path_from_center(track_index, slot)
 	_animate_along_path(wagon, path, func():
 		wagon.rotation = 0.0
 		station.place_wagon(wagon, track_index, slot)
@@ -105,6 +110,9 @@ func _animate_along_path(wagon: Wagon, path: PackedVector2Array, on_done: Callab
 				var seg_len := cumul[i] - cumul[i - 1]
 				var seg_t   := 0.0 if seg_len < 0.001 else (d - cumul[i - 1]) / seg_len
 				wagon.position = path[i - 1].lerp(path[i], clampf(seg_t, 0.0, 1.0))
+				var seg_dir := path[i] - path[i - 1]
+				if seg_dir.length_squared() > 0.0001:
+					wagon.rotation = seg_dir.angle()
 				break,
 		0.0, 1.0, total / Layout.SPEED
 	)
@@ -139,7 +147,7 @@ func _animate_exit(wagons: Array, dest: Vector2) -> void:
 		tween.tween_callback(wagon.queue_free)
 
 func _return_to_queue(wagons: Array) -> void:
-	var base_x := queue.get_tail_global_x() + Layout.WAGON_GAP
+	var base_x := queue.get_tail_x() + Layout.WAGON_GAP
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
 		var dest := Vector2(base_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y)

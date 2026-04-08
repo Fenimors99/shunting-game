@@ -7,10 +7,9 @@ const SCREEN_H := 1080.0
 const JUNCTION_X    := 240.0
 const QUEUE_Y       := 1039.0
 # Вертикальна розподільна рейка
-const DIST_RAIL_X   := 220.0
-# Де горизонтальна черга закінчується і починається дуга вгору
-# = DIST_RAIL_X + (QUEUE_Y - track_7_y), щоб дуга була рівномірною
-const QUEUE_ARC_X   := DIST_RAIL_X + QUEUE_Y - (TRACK_TOP + (TRACK_COUNT - 1) * TRACK_SPACING)
+const DIST_RAIL_X   := 450.0
+# Центральна колія (trunk) — Колія 4 (індекс 1-based)
+const CENTER_TRACK  := 4
 
 const STATION_LEFT  := 560.0
 const STATION_RIGHT := 1280.0
@@ -21,10 +20,15 @@ const TRACK_COUNT   := 7
 const SPEED := 440.0
 
 # Відстань між центрами вагонів
-const WAGON_GAP := 95.0
+const WAGON_GAP := 110.0
 
 # Скільки вагонів видно знизу одразу
 const QUEUE_VISIBLE_LIMIT := 8
+
+# X де горизонтальна черга закінчується і починається L-поворот
+const QUEUE_STOP_X := 200.0
+# Радіус заокруглення кутів L-повороту
+const QUEUE_ARC_R  := 100.0
 
 # Раз на скільки секунд випускається новий вагон із-за екрана
 const QUEUE_SPAWN_INTERVAL := 1.0
@@ -38,9 +42,6 @@ const QUEUE_OFFSCREEN_SPAWN_X := SCREEN_W + WAGON_GAP
 # Місткості колій — симетричний шестикутник навколо центральної колії
 const TRACK_CAPACITIES   := { 1: 4, 2: 5, 3: 6, 4: 7, 5: 6, 6: 5, 7: 4 }
 const MAX_TRACK_CAPACITY := 7   # місткість центральної (найдовшої) колії
-
-# Глибина петлі вхідної дуги нижче QUEUE_Y
-const ENTRY_ARC_DEPTH := 350.0
 
 static func get_track_y(track_index: int) -> float:
 	return TRACK_TOP + (track_index - 1) * TRACK_SPACING
@@ -58,31 +59,60 @@ static func get_dist_rail_x(track_index: int) -> float:
 	var cap_diff := float(MAX_TRACK_CAPACITY - get_track_capacity(track_index))
 	return DIST_RAIL_X + (cap_diff / 2.0) * WAGON_GAP
 
-# Нижня точка розподільної рейки (колія 7)
-static func get_dist_rail_bottom() -> Vector2:
-	return Vector2(get_dist_rail_x(TRACK_COUNT), get_track_y(TRACK_COUNT) + 20.0)
+# Точка входу в центральну колію (trunk) — куди приходить дуга з черги.
+static func get_center_entry_point() -> Vector2:
+	return Vector2(get_dist_rail_x(CENTER_TRACK), get_track_y(CENTER_TRACK))
 
-# Масив точок вхідної дуги (черга → низ розподільної рейки)
-static func get_entry_arc(steps: int = 48) -> PackedVector2Array:
-	var bot := get_dist_rail_bottom()
-	return _cubic_bezier_pts(
-		Vector2(QUEUE_ARC_X, QUEUE_Y),
-		Vector2(QUEUE_ARC_X, QUEUE_Y + ENTRY_ARC_DEPTH),
-		Vector2(bot.x - 50.0, QUEUE_Y + ENTRY_ARC_DEPTH),
-		Vector2(bot.x, bot.y),
-		steps
-	)
+# Маршрут від горизонтальної черги до центрального входу в станцію.
+# Форма: горизонталь → чверть-коло → вертикаль → чверть-коло → горизонталь у центр.
+static func get_entry_arc(steps_per_arc: int = 24) -> PackedVector2Array:
+	var center := get_center_entry_point()
+	var R := QUEUE_ARC_R
+
+	# Кут 1 (знизу): горизонталь → вертикаль
+	var c1 := Vector2(QUEUE_STOP_X + R, QUEUE_Y - R)
+	# Кут 2 (вгорі): вертикаль → горизонталь у центр
+	var c2 := Vector2(QUEUE_STOP_X + R, center.y + R)
+
+	var pts := PackedVector2Array()
+	pts.append(Vector2(QUEUE_STOP_X + R, QUEUE_Y))
+
+	for i in range(1, steps_per_arc + 1):
+		var angle := PI * 0.5 + float(i) / steps_per_arc * PI * 0.5
+		pts.append(c1 + Vector2(cos(angle), sin(angle)) * R)
+
+	pts.append(Vector2(QUEUE_STOP_X, center.y + R))
+
+	for i in range(1, steps_per_arc + 1):
+		var angle := PI + float(i) / steps_per_arc * PI * 0.5
+		pts.append(c2 + Vector2(cos(angle), sin(angle)) * R)
+
+	pts.append(center)
+	return pts
 
 # Повний маршрут від точки зупинки черги до слоту на колії.
 # Використовується і для малювання рейок, і для анімації вагонів.
+#
+# Топологія:
+#   черга → дуга → центр (колія 4)
+#                       ├─ вгору → колія 3 → 2 → 1
+#                       │  (trunk, пряме продовження)
+#                       └─ вниз  → колія 5 → 6 → 7
 static func get_entry_path(track_index: int, slot: int) -> PackedVector2Array:
 	var pts := PackedVector2Array()
-	# 1. Петля-дуга вниз і вгору до низу розподільної рейки
+	# 1. Дуга від черги до центру (колія 4)
 	pts.append_array(get_entry_arc())
-	# 2. По розподільній рейці вгору до потрібної колії
-	for i in range(TRACK_COUNT, track_index - 1, -1):
-		pts.append(Vector2(get_dist_rail_x(i), get_track_y(i) + 20.0))
-	# 3. Маленька стрілка-відгалуження в колію
+	# 2. Розподільна рейка від центру до цільової колії
+	if track_index < CENTER_TRACK:
+		# Вгору: через колії 3 → 2 → 1 (зупиняємось на потрібній)
+		for i in range(CENTER_TRACK - 1, track_index - 1, -1):
+			pts.append(Vector2(get_dist_rail_x(i), get_track_y(i)))
+	elif track_index > CENTER_TRACK:
+		# Вниз: через колії 5 → 6 → 7 (зупиняємось на потрібній)
+		for i in range(CENTER_TRACK + 1, track_index + 1):
+			pts.append(Vector2(get_dist_rail_x(i), get_track_y(i)))
+	# track_index == CENTER_TRACK: вже в центрі, не рухаємось
+	# 3. Відгалуження в колію
 	var dx := get_dist_rail_x(track_index)
 	var ty := get_track_y(track_index)
 	pts.append(Vector2(dx + 28.0, ty))
@@ -90,14 +120,23 @@ static func get_entry_path(track_index: int, slot: int) -> PackedVector2Array:
 	pts.append(Vector2(get_slot_x(track_index, slot), ty))
 	return pts
 
-static func _cubic_bezier_pts(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2,
-		steps: int = 48) -> PackedVector2Array:
+# Маршрут від центральної точки (кінець дуги) до слоту на колії.
+# Використовується коли вагон вже стоїть в центрі після проїзду дуги.
+static func get_track_path_from_center(track_index: int, slot: int) -> PackedVector2Array:
 	var pts := PackedVector2Array()
-	for i in range(steps + 1):
-		var t  := float(i) / steps
-		var mt := 1.0 - t
-		pts.append(mt*mt*mt*p0 + 3.0*mt*mt*t*p1 + 3.0*mt*t*t*p2 + t*t*t*p3)
+	pts.append(get_center_entry_point())
+	if track_index < CENTER_TRACK:
+		for i in range(CENTER_TRACK - 1, track_index - 1, -1):
+			pts.append(Vector2(get_dist_rail_x(i), get_track_y(i)))
+	elif track_index > CENTER_TRACK:
+		for i in range(CENTER_TRACK + 1, track_index + 1):
+			pts.append(Vector2(get_dist_rail_x(i), get_track_y(i)))
+	var dx := get_dist_rail_x(track_index)
+	var ty := get_track_y(track_index)
+	pts.append(Vector2(dx + 28.0, ty))
+	pts.append(Vector2(get_slot_x(track_index, slot), ty))
 	return pts
+
 
 const EXIT_LOADING_POS  := Vector2(2200.0,  540.0)
 const EXIT_REPAIR_POS   := Vector2(2200.0, 1250.0)
