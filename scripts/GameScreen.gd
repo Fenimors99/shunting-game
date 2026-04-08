@@ -237,7 +237,7 @@ func _create_pause_ui() -> void:
 	var btn_exit = create_menu_btn.call("Вихід до рівнів", Color(0.8, 0.3, 0.3))
 	btn_exit.pressed.connect(func():
 		get_tree().paused = false
-		get_tree().change_scene_to_file("res://scenes/LevelSelect.tscn") # Вкажіть шлях до вашого меню
+		get_tree().change_scene_to_file("res://scenes/LevelSelect.tscn")
 	)
 	btn_container.add_child(btn_exit)
 	
