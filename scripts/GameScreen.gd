@@ -34,19 +34,27 @@ func _ready() -> void:
 	_create_start_button()
 	
 func _on_all_tasks_completed() -> void:
-	_timer_running = false # Зупиняємо таймер
-	
-	var victory_scene = load("res://scenes/VictoryScreen.tscn").instantiate()
-	
-	# 1. СПОЧАТКУ передаємо час
-	victory_scene.final_time = _format_time(_time_elapsed)
-	
-	# 2. ПОТІМ додаємо в дерево (це запустить _ready в VictoryScreen)
-	get_tree().root.add_child(victory_scene)
-	
-	# 3. Очищуємо стару сцену
-	get_tree().current_scene.queue_free()
-	get_tree().current_scene = victory_scene
+	_timer_running = false
+	# Чекаємо поки вагони відʼїдуть, потім fade-to-black → victory
+	var tween := create_tween()
+	tween.tween_interval(2.2)
+	tween.tween_callback(_start_victory_transition)
+
+func _start_victory_transition() -> void:
+	var overlay := ColorRect.new()
+	overlay.color = Color(0.0, 0.0, 0.0, 0.0)
+	overlay.size = get_viewport_rect().size
+	overlay.z_index = 100
+	add_child(overlay)
+	var tween := create_tween()
+	tween.tween_property(overlay, "color", Color(0.0, 0.0, 0.0, 1.0), 0.8)
+	tween.tween_callback(func():
+		var victory_scene = load("res://scenes/VictoryScreen.tscn").instantiate()
+		victory_scene.final_time = _format_time(_time_elapsed)
+		get_tree().root.add_child(victory_scene)
+		get_tree().current_scene.queue_free()
+		get_tree().current_scene = victory_scene
+	)
 
 # Вагон доїхав до центру по кривій черзі — чекає призначення на колію
 func _on_wagon_at_center(wagon: Wagon) -> void:
