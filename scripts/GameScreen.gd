@@ -10,6 +10,10 @@ extends Node2D
 # Вагон, що стоїть в центральній точці і чекає призначення на колію
 var _wagon_at_center: Wagon = null
 
+var _timer_label: Label
+var _timer_running: bool = false
+var _time_elapsed: float = 0.0
+
 func _ready() -> void:
 	queue.position.y = Layout.QUEUE_Y
 	queue.wagon_at_center.connect(_on_wagon_at_center)
@@ -28,9 +32,21 @@ func _ready() -> void:
 	task_manager.task_completed.connect(func(_i): station.refresh_all_exit_buttons())
 	task_manager.all_tasks_completed.connect(_on_all_tasks_completed)
 	_create_start_button()
-
+	
 func _on_all_tasks_completed() -> void:
-	get_tree().change_scene_to_file("res://scenes/VictoryScreen.tscn")
+	_timer_running = false # Зупиняємо таймер
+	
+	var victory_scene = load("res://scenes/VictoryScreen.tscn").instantiate()
+	
+	# 1. СПОЧАТКУ передаємо час
+	victory_scene.final_time = _format_time(_time_elapsed)
+	
+	# 2. ПОТІМ додаємо в дерево (це запустить _ready в VictoryScreen)
+	get_tree().root.add_child(victory_scene)
+	
+	# 3. Очищуємо стару сцену
+	get_tree().current_scene.queue_free()
+	get_tree().current_scene = victory_scene
 
 # Вагон доїхав до центру по кривій черзі — чекає призначення на колію
 func _on_wagon_at_center(wagon: Wagon) -> void:
@@ -69,10 +85,32 @@ func _create_start_button() -> void:
 
 	btn.pressed.connect(_on_start_pressed.bind(btn))
 	add_child(btn)
+	_create_timer_label() # Додаємо цей рядок
+	
+func _create_timer_label() -> void:
+	_timer_label = Label.new()
+	_timer_label.position = Vector2(20, 20) # Розміщення в лівому верхньому кутку
+	_timer_label.add_theme_font_size_override("font_size", 36)
+	_timer_label.add_theme_color_override("font_color", Color.WHITE)
+	_timer_label.add_theme_color_override("font_outline_color", Color(0.1, 0.1, 0.1, 0.8))
+	_timer_label.add_theme_constant_override("outline_size", 6)
+	_timer_label.text = "Час: 00:00"
+	add_child(_timer_label)
 
+func _process(delta: float) -> void:
+	if _timer_running:
+		_time_elapsed += delta
+		_timer_label.text = "Час: " + _format_time(_time_elapsed)
+
+func _format_time(time_in_sec: float) -> String:
+	var m := int(time_in_sec) / 60
+	var s := int(time_in_sec) % 60
+	return "%02d:%02d" % [m, s]
+	
 func _on_start_pressed(btn: Button) -> void:
 	btn.queue_free()
 	queue.start()
+	_timer_running = true
 
 func _on_track_entry_tapped(track_index: int) -> void:
 	if _wagon_at_center == null:
