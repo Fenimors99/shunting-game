@@ -15,6 +15,7 @@ var _pos_open:   float
 var _pos_closed: float
 
 func _ready() -> void:
+	z_index = 1  # поверх вагонів (z=0)
 	var vp := get_viewport_rect().size
 	_pos_open   = vp.x - PANEL_W
 	_pos_closed = vp.x
