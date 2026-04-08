@@ -33,6 +33,16 @@ func _ready() -> void:
 	_create_entry_buttons()
 	_create_exit_buttons()
 	_create_choice_containers()
+	_create_repair_depot_roof()
+
+func _create_repair_depot_roof() -> void:
+	var roof := Node2D.new()
+	roof.z_index = 1  # один рівень над рейками/вагонами що на z=0
+	roof.connect("draw", func():
+		roof.draw_rect(Layout.REPAIR_DEPOT_RECT, Color(0.9, 0.2, 0.2, 1.0), true)
+		roof.draw_rect(Layout.REPAIR_DEPOT_RECT, Color(0.7, 0.1, 0.1, 1.0), false, 2.0)
+	)
+	add_child(roof)
 
 # Розраховує (start_x, end_x) рейок для колії відносно центральної (найдовшої).
 # Коротші колії симетрично зміщені всередину, формуючи шестикутник.
@@ -264,6 +274,15 @@ func _draw_exit_rails() -> void:
 			Vector2(Layout.get_exit_rail_x(i),     Layout.get_track_y(i)),
 			thin_color
 		)
+
+	# 3.5. Пряма гілка від колії 7 до ремонтного депо
+	var track7_y := Layout.get_track_y(7)
+	var fork_x   := Layout.get_exit_rail_x(7)
+	_draw_rail_segment(
+		Vector2(fork_x, track7_y),
+		Vector2(Layout.REPAIR_DEPOT_RECT.position.x, track7_y),
+		rail_color
+	)
 
 	# 4. Вихідна дуга
 	_draw_curved_rail(Layout.get_exit_arc(), rail_color)

@@ -188,6 +188,7 @@ static func get_track_path_from_center(track_index: int, slot: int) -> PackedVec
 
 
 const LOCO_DEPOT_RECT   := Rect2(1310.0, 800.0, 180.0, 75.0)
+const REPAIR_DEPOT_RECT := Rect2(1480.0, 808.0, 150.0, 74.0)  # будівля ремонту, колія 7
 
 static func is_wagon_compatible(wagon_type: Wagon.WagonType, track_index: int) -> bool:
 	match wagon_type:

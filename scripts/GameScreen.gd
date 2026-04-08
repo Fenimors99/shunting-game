@@ -122,7 +122,10 @@ func _on_track_exit_tapped(track_index: int) -> void:
 	if not loco_depot.use_locomotive():
 		return
 	var wagons: Array = station.pop_all_wagons(track_index)
-	_animate_exit(wagons, track_index)
+	if track_index == 7:
+		_animate_to_repair(wagons)
+	else:
+		_animate_exit(wagons, track_index)
 
 func _on_track_exit_choice(track_index: int, submit: bool) -> void:
 	if not loco_depot.use_locomotive():
@@ -182,4 +185,18 @@ func _return_to_queue(wagons: Array, track_index: int) -> void:
 				queue.receive_wagon(wagon)
 			)
 		)
-			
+
+func _animate_to_repair(wagons: Array) -> void:
+	var dest_x   := Layout.REPAIR_DEPOT_RECT.get_center().x
+	var track7_y := Layout.get_track_y(7)
+	for i in wagons.size():
+		var wagon: Wagon = wagons[i]
+		var pts := PackedVector2Array()
+		pts.append(wagon.position)
+		pts.append(Vector2(dest_x, track7_y))
+		var idx := i
+		var delay_tween := create_tween()
+		delay_tween.tween_interval(idx * 0.18)
+		delay_tween.tween_callback(func():
+			_animate_along_path(wagon, pts, wagon.queue_free)
+		)
