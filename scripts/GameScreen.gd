@@ -14,6 +14,11 @@ var _timer_label: Label
 var _timer_running: bool = false
 var _time_elapsed: float = 0.0
 
+var _pause_btn: Button
+var _pause_overlay: Panel
+
+var _pause_black_bg: ColorRect # НОВЕ
+
 func _ready() -> void:
 	queue.position.y = Layout.QUEUE_Y
 	queue.wagon_at_center.connect(_on_wagon_at_center)
@@ -94,6 +99,7 @@ func _create_start_button() -> void:
 	btn.pressed.connect(_on_start_pressed.bind(btn))
 	add_child(btn)
 	_create_timer_label() # Додаємо цей рядок
+	_create_pause_ui() # Додаємо сюди
 	
 func _create_timer_label() -> void:
 	var W := 210.0
@@ -124,11 +130,136 @@ func _format_time(time_in_sec: float) -> String:
 	var s := int(time_in_sec) % 60
 	return "%02d:%02d" % [m, s]
 	
+func _create_pause_ui() -> void:
+	var vp := get_viewport_rect().size
+	
+	# --- 1. КНОПКА-КРУЖЕЧОК (Таймерний стиль) ---
+	# Щоб кнопка паузи була видна і clickable над темним фоном,
+	# ми поставимо їй такий самий високий z_index
+	var size_px := 62.0
+	_pause_btn = Button.new()
+	_pause_btn.custom_minimum_size = Vector2(size_px, size_px)
+	_pause_btn.position = Vector2(16 + 210 + 10, 16)
+	_pause_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	_pause_btn.flat = true
+	_pause_btn.visible = false
+	_pause_btn.z_index = 51 # <--- ДОДАТО: Вище ніж темний фон
+	
+	_pause_btn.connect("draw", func():
+		var center = Vector2(size_px / 2, size_px / 2)
+		var radius = size_px / 2
+		var color_bg = Color(0.06, 0.09, 0.15, 0.96)
+		var color_border = Color(0.30, 0.45, 0.65, 0.8)
+		var color_icon = Color(0.80, 0.88, 1.00, 0.95)
+		_pause_btn.draw_circle(center, radius, color_bg)
+		_pause_btn.draw_arc(center, radius - 1, 0, TAU, 64, color_border, 2.0, true)
+		if get_tree().paused:
+			var points = PackedVector2Array([Vector2(25, 20), Vector2(25, 42), Vector2(45, 31)])
+			_pause_btn.draw_colored_polygon(points, color_icon)
+		else:
+			_pause_btn.draw_rect(Rect2(22, 20, 6, 22), color_icon)
+			_pause_btn.draw_rect(Rect2(34, 20, 6, 22), color_icon)
+	)
+	_pause_btn.pressed.connect(_on_pause_toggle)
+	add_child(_pause_btn)
+
+	# --- 2. НОВЕ: ПОВНИЙ ЧОРНИЙ ФОН (Затемнення) ---
+	_pause_black_bg = ColorRect.new()
+	_pause_black_bg.color = Color(0.0, 0.0, 0.0, 1.0) # <--- ПОВНІСТЮ ЧОРНИЙ
+	# (Якщо хочете, щоб гра була трохи видна, змініть на: Color(0,0,0, 0.7) )
+	_pause_black_bg.size = vp # Вкриває весь екран
+	_pause_black_bg.visible = false
+	_pause_black_bg.process_mode = Node.PROCESS_MODE_ALWAYS # Має працювати на паузі
+	_pause_black_bg.z_index = 50 # <--- Високий шар, щоб перекрити ігрові об'єкти
+	add_child(_pause_black_bg)
+
+	# --- 3. ВЕЛИКА ПАНЕЛЬ МЕНЮ ПАУЗИ ---
+	_pause_overlay = Panel.new()
+	_pause_overlay.size = Vector2(420, 380)
+	_pause_overlay.position = (vp - _pause_overlay.size) / 2.0
+	_pause_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	_pause_overlay.visible = false
+	_pause_overlay.z_index = 51 # <--- ДОДАТО: Вище ніж чорний фон
+	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.09, 0.15, 0.98)
+	style.border_color = Color(0.30, 0.45, 0.65, 1.0)
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(20)
+	_pause_overlay.add_theme_stylebox_override("panel", style)
+	add_child(_pause_overlay)
+	
+	# Заголовок (змістили вгору)
+	var lbl = Label.new()
+	lbl.text = "Гру призупинено"
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.position = Vector2(0, 40)
+	lbl.size = Vector2(420, 50)
+	lbl.add_theme_font_size_override("font_size", 32)
+	lbl.add_theme_color_override("font_color", Color(0.80, 0.88, 1.00))
+	_pause_overlay.add_child(lbl)
+	
+	# --- 3. КОНТЕЙНЕР ДЛЯ КНОПОК ---
+	var btn_container = VBoxContainer.new()
+	btn_container.size = Vector2(300, 220)
+	btn_container.position = Vector2(60, 110) # Центруємо всередині панелі
+	btn_container.add_theme_constant_override("separation", 15)
+	_pause_overlay.add_child(btn_container)
+
+	# Допоміжна функція для створення однакових кнопок меню
+	var create_menu_btn = func(txt: String, color: Color):
+		var b = Button.new()
+		b.text = txt
+		b.custom_minimum_size = Vector2(0, 70)
+		var bs = StyleBoxFlat.new()
+		bs.bg_color = color.darkened(0.3)
+		bs.set_corner_radius_all(10)
+		bs.set_border_width_all(1)
+		bs.border_color = color
+		b.add_theme_stylebox_override("normal", bs)
+		b.add_theme_font_size_override("font_size", 22)
+		return b
+
+	# Кнопка: ПРОДОВЖИТИ
+	var btn_resume = create_menu_btn.call("Продовжити", Color(0.3, 0.6, 0.9))
+	btn_resume.pressed.connect(_on_pause_toggle)
+	btn_container.add_child(btn_resume)
+
+	# Кнопка: РЕСТАРТ
+	var btn_restart = create_menu_btn.call("Почати заново", Color(0.3, 0.8, 0.4))
+	btn_restart.pressed.connect(func(): 
+		get_tree().paused = false # Обов'язково знімаємо паузу перед перезавантаженням!
+		get_tree().reload_current_scene()
+	)
+	btn_container.add_child(btn_restart)
+
+	# Кнопка: ВИХІД
+	var btn_exit = create_menu_btn.call("Вихід до рівнів", Color(0.8, 0.3, 0.3))
+	btn_exit.pressed.connect(func():
+		get_tree().paused = false
+		get_tree().change_scene_to_file("res://scenes/LevelSelect.tscn") # Вкажіть шлях до вашого меню
+	)
+	btn_container.add_child(btn_exit)
+	
+func _on_pause_toggle() -> void:
+	var new_pause_state = not get_tree().paused
+	get_tree().paused = new_pause_state
+	
+	# Оновлюємо видимість обох елементів паузи
+	_pause_black_bg.visible = new_pause_state # <--- ДОДАТО
+	_pause_overlay.visible = new_pause_state
+	
+	# 2. Ховаємо КРУЖЕЧОК, якщо ми на паузі, і показуємо, якщо повернулися в гру
+	_pause_btn.visible = not new_pause_state
+	
+	_pause_btn.queue_redraw()
+	
 func _on_start_pressed(btn: Button) -> void:
 	btn.queue_free()
 	queue.start()
 	_timer_running = true
-
+	_pause_btn.visible = true
+	
 func _on_track_entry_tapped(track_index: int) -> void:
 	if _wagon_at_center == null:
 		return
