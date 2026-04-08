@@ -122,9 +122,7 @@ func _on_track_exit_tapped(track_index: int) -> void:
 	if not loco_depot.use_locomotive():
 		return
 	var wagons: Array = station.pop_all_wagons(track_index)
-	match track_index:
-		1: _animate_exit(wagons, Layout.EXIT_LOADING_POS)
-		7: _animate_exit(wagons, Layout.EXIT_REPAIR_POS)
+	_animate_exit(wagons, track_index)
 
 func _on_track_exit_choice(track_index: int, submit: bool) -> void:
 	if not loco_depot.use_locomotive():
@@ -132,31 +130,56 @@ func _on_track_exit_choice(track_index: int, submit: bool) -> void:
 	var wagons: Array = station.pop_all_wagons(track_index)
 	if submit:
 		task_manager.submit(wagons)
-		_animate_exit(wagons, Layout.EXIT_SUBMIT_POS)
+		_animate_exit(wagons, track_index)
 	else:
-		_return_to_queue(wagons)
+		_return_to_queue(wagons, track_index)
 
-func _animate_exit(wagons: Array, dest: Vector2) -> void:
+func _animate_exit(wagons: Array, track_index: int) -> void:
+	var exit_arc := Layout.get_exit_arc()
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
-		var delay := i * 0.12
-		var dist := wagon.position.distance_to(dest)
-		var tween := create_tween()
-		tween.tween_interval(delay)
-		tween.tween_property(wagon, "position", dest, dist / Layout.SPEED)
-		tween.tween_callback(wagon.queue_free)
+		# Будуємо шлях: слот → збірна рейка → дуга → за екран
+		var pts := PackedVector2Array()
+		pts.append(wagon.position)
+		pts.append(Vector2(Layout.get_exit_rail_x(track_index), Layout.get_track_y(track_index)))
+		if track_index < Layout.CENTER_TRACK:
+			for j in range(track_index + 1, Layout.CENTER_TRACK + 1):
+				pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
+		elif track_index > Layout.CENTER_TRACK:
+			for j in range(track_index - 1, Layout.CENTER_TRACK - 1, -1):
+				pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
+		pts.append_array(exit_arc)
+		pts.append(Vector2(-Layout.WAGON_GAP, Layout.QUEUE_Y))
+		var idx := i
+		var delay_tween := create_tween()
+		delay_tween.tween_interval(idx * 0.18)
+		delay_tween.tween_callback(func():
+			_animate_along_path(wagon, pts, wagon.queue_free)
+		)
 
-func _return_to_queue(wagons: Array) -> void:
-	var base_x := queue.get_tail_x() + Layout.WAGON_GAP
+func _return_to_queue(wagons: Array, track_index: int) -> void:
+	var exit_arc := Layout.get_exit_arc()
+	var base_tail_x := queue.get_tail_x() + Layout.WAGON_GAP
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
-		var dest := Vector2(base_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y)
-		var tween := create_tween()
-		var dist := wagon.position.distance_to(dest)
-		tween.tween_property(wagon, "position", dest, dist / Layout.SPEED)
-		
-		tween.tween_callback(func(): 
-			wagon.rotation = PI
-			queue.receive_wagon(wagon)
+		var pts := PackedVector2Array()
+		pts.append(wagon.position)
+		pts.append(Vector2(Layout.get_exit_rail_x(track_index), Layout.get_track_y(track_index)))
+		if track_index < Layout.CENTER_TRACK:
+			for j in range(track_index + 1, Layout.CENTER_TRACK + 1):
+				pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
+		elif track_index > Layout.CENTER_TRACK:
+			for j in range(track_index - 1, Layout.CENTER_TRACK - 1, -1):
+				pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
+		pts.append_array(exit_arc)
+		pts.append(Vector2(base_tail_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y))
+		var idx := i
+		var delay_tween := create_tween()
+		delay_tween.tween_interval(idx * 0.18)
+		delay_tween.tween_callback(func():
+			_animate_along_path(wagon, pts, func():
+				wagon.rotation = PI
+				queue.receive_wagon(wagon)
 			)
+		)
 			

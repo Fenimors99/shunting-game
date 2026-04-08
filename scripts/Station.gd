@@ -236,12 +236,44 @@ func _draw_rail_segment(from: Vector2, to: Vector2, color: Color) -> void:
 		dist += step
 		
 func _draw_exit_rails() -> void:
-	var rail_color := Color(0.5, 0.6, 0.75, 0.4)
+	var rail_color := Color(0.5, 0.6, 0.75, 0.5)
+	var thin_color := COLOR_BORDER
+
+	# 1. Горизонтальні відрізки від правого краю кожної колії до збірної рейки
 	for i in range(1, Layout.TRACK_COUNT + 1):
 		var y := Layout.get_track_y(i)
 		var bounds := _get_track_bounds(i)
-		# Починаємо рейку виходу від зміщеного краю
-		draw_line(Vector2(bounds.y + 10, y), Vector2(Layout.STATION_RIGHT + 60, y), rail_color, 1.5)
+		_draw_rail_segment(
+			Vector2(bounds.y, y),
+			Vector2(Layout.get_exit_rail_x(i), y),
+			rail_color
+		)
+
+	# 2. Збірна рейка: верхня гілка (колія 3→2→1)
+	for i in range(Layout.CENTER_TRACK - 1, 0, -1):
+		_draw_rail_segment(
+			Vector2(Layout.get_exit_rail_x(i + 1), Layout.get_track_y(i + 1)),
+			Vector2(Layout.get_exit_rail_x(i),     Layout.get_track_y(i)),
+			thin_color
+		)
+
+	# 3. Збірна рейка: нижня гілка (колія 5→6→7)
+	for i in range(Layout.CENTER_TRACK + 1, Layout.TRACK_COUNT + 1):
+		_draw_rail_segment(
+			Vector2(Layout.get_exit_rail_x(i - 1), Layout.get_track_y(i - 1)),
+			Vector2(Layout.get_exit_rail_x(i),     Layout.get_track_y(i)),
+			thin_color
+		)
+
+	# 4. Вихідна дуга
+	_draw_curved_rail(Layout.get_exit_arc(), rail_color)
+
+	# 5. Горизонталь від кінця дуги до правого краю екрана
+	_draw_rail_segment(
+		Vector2(Layout.EXIT_STOP_X + Layout.QUEUE_ARC_R, Layout.QUEUE_Y),
+		Vector2(get_viewport_rect().size.x, Layout.QUEUE_Y),
+		rail_color
+	)
 
 # --- Кнопки входу ---
 

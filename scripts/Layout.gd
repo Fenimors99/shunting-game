@@ -30,6 +30,11 @@ const QUEUE_STOP_X := 200.0
 # Радіус заокруглення кутів L-повороту
 const QUEUE_ARC_R  := 100.0
 
+# Права збірна рейка (дзеркало DIST_RAIL_X)
+const EXIT_RAIL_X  := SCREEN_W - DIST_RAIL_X   # 1470
+# X вертикального сегменту правого L-повороту (дзеркало QUEUE_STOP_X)
+const EXIT_STOP_X  := SCREEN_W - QUEUE_STOP_X  # 1720
+
 # Раз на скільки секунд випускається новий вагон із-за екрана
 const QUEUE_SPAWN_INTERVAL := 1.0
 
@@ -90,6 +95,50 @@ static func get_entry_arc(steps_per_arc: int = 24) -> PackedVector2Array:
 	pts.append(center)
 	return pts
 
+# --- Правий вихід (дзеркало входу) ---
+
+# X збірної рейки для конкретної колії (дзеркало get_dist_rail_x)
+static func get_exit_rail_x(track_index: int) -> float:
+	var cap_diff := float(MAX_TRACK_CAPACITY - get_track_capacity(track_index))
+	return EXIT_RAIL_X - (cap_diff / 2.0) * WAGON_GAP
+
+# Центральна точка правого виходу (дзеркало get_center_entry_point)
+static func get_exit_center_point() -> Vector2:
+	return Vector2(get_exit_rail_x(CENTER_TRACK), get_track_y(CENTER_TRACK))
+
+# Вихідна дуга: центр → горизонталь → чверть-коло → вертикаль → чверть-коло → горизонталь вліво.
+# Дзеркало get_entry_arc: вгору-вправо → вертикаль вниз → ліво (форма _I, дзеркало ⌐).
+static func get_exit_arc(steps_per_arc: int = 24) -> PackedVector2Array:
+	var center := get_exit_center_point()
+	var R := QUEUE_ARC_R
+
+	# Кут 1 (вгорі-право): горизонталь → вниз (3π/2 → 2π)
+	var c1 := Vector2(EXIT_STOP_X - R, center.y + R)
+	# Кут 2 (внизу-ліво): вниз → ліво (дзеркало входу: 0 → π/2)
+	var c2 := Vector2(EXIT_STOP_X - R, QUEUE_Y - R)
+
+	var pts := PackedVector2Array()
+	pts.append(center)
+
+	# Горизонталь до кута 1
+	pts.append(Vector2(EXIT_STOP_X - R, center.y))
+
+	# Кут 1: право → вниз
+	for i in range(1, steps_per_arc + 1):
+		var angle := 1.5 * PI + float(i) / steps_per_arc * PI * 0.5
+		pts.append(c1 + Vector2(cos(angle), sin(angle)) * R)
+
+	# Вертикаль вниз
+	pts.append(Vector2(EXIT_STOP_X, QUEUE_Y - R))
+
+	# Кут 2: вниз → ліво (дзеркало: 0 → π/2)
+	for i in range(1, steps_per_arc + 1):
+		var angle := float(i) / steps_per_arc * PI * 0.5
+		pts.append(c2 + Vector2(cos(angle), sin(angle)) * R)
+
+	pts.append(Vector2(EXIT_STOP_X - R, QUEUE_Y))
+	return pts
+
 # Повний маршрут від точки зупинки черги до слоту на колії.
 # Використовується і для малювання рейок, і для анімації вагонів.
 #
@@ -137,10 +186,6 @@ static func get_track_path_from_center(track_index: int, slot: int) -> PackedVec
 	pts.append(Vector2(get_slot_x(track_index, slot), ty))
 	return pts
 
-
-const EXIT_LOADING_POS  := Vector2(2200.0,  540.0)
-const EXIT_REPAIR_POS   := Vector2(2200.0, 1250.0)
-const EXIT_SUBMIT_POS   := Vector2(2200.0, -200.0)
 
 const LOCO_DEPOT_RECT   := Rect2(1310.0, 800.0, 180.0, 75.0)
 
