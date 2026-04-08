@@ -10,7 +10,7 @@ const NORMAL_COLORS := [
 	Color(0.20, 0.75, 0.35),  # GREEN
 	Color(0.95, 0.80, 0.15),  # YELLOW
 	Color(0.65, 0.25, 0.85),  # PURPLE
-	Color(0.90, 0.50, 0.15),  # ORANGE (Новий колір)
+	
 ]
 
 # Попередньо завантажуємо текстури з папки assets
