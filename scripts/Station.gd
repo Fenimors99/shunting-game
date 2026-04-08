@@ -275,6 +275,12 @@ func _draw_exit_rails() -> void:
 			thin_color
 		)
 
+	# 3.4. Вихід колії 1: дуга право→вгору + вертикаль за екран
+	var arc1 := Layout.get_track1_exit_arc()
+	_draw_curved_rail(arc1, rail_color)
+	var arc1_end := arc1[arc1.size() - 1]
+	_draw_rail_segment(arc1_end, Vector2(arc1_end.x, 0.0), rail_color)
+
 	# 3.5. Пряма гілка від колії 7 до ремонтного депо
 	var track7_y := Layout.get_track_y(7)
 	var fork_x   := Layout.get_exit_rail_x(7)

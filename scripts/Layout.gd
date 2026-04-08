@@ -139,6 +139,20 @@ static func get_exit_arc(steps_per_arc: int = 24) -> PackedVector2Array:
 	pts.append(Vector2(EXIT_STOP_X - R, QUEUE_Y))
 	return pts
 
+# Вихід колії 1: горизонталь → чверть-коло право→вгору → вертикаль за верхній край.
+# fork = (exit_rail_x(1), track_y(1)); дуга: π/2 → 0; кінець → (fork.x+R, fork.y-R).
+static func get_track1_exit_arc(steps_per_arc: int = 24) -> PackedVector2Array:
+	var fork := Vector2(get_exit_rail_x(1), get_track_y(1))
+	var R    := QUEUE_ARC_R
+	var c    := Vector2(fork.x, fork.y - R)  # центр дуги: прямо над fork
+	var pts  := PackedVector2Array()
+	pts.append(fork)
+	for i in range(1, steps_per_arc + 1):
+		var angle := PI * 0.5 - float(i) / steps_per_arc * PI * 0.5
+		pts.append(c + Vector2(cos(angle), sin(angle)) * R)
+	# кінець: (fork.x + R, fork.y - R), напрямок — вгору
+	return pts
+
 # Повний маршрут від точки зупинки черги до слоту на колії.
 # Використовується і для малювання рейок, і для анімації вагонів.
 #

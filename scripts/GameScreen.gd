@@ -124,6 +124,8 @@ func _on_track_exit_tapped(track_index: int) -> void:
 	var wagons: Array = station.pop_all_wagons(track_index)
 	if track_index == 7:
 		_animate_to_repair(wagons)
+	elif track_index == 1:
+		_animate_to_loading(wagons)
 	else:
 		_animate_exit(wagons, track_index)
 
@@ -184,6 +186,22 @@ func _return_to_queue(wagons: Array, track_index: int) -> void:
 				wagon.rotation = PI
 				queue.receive_wagon(wagon)
 			)
+		)
+
+func _animate_to_loading(wagons: Array) -> void:
+	var arc    := Layout.get_track1_exit_arc()
+	var arc_end := arc[arc.size() - 1]
+	for i in wagons.size():
+		var wagon: Wagon = wagons[i]
+		var pts := PackedVector2Array()
+		pts.append(wagon.position)
+		pts.append_array(arc)
+		pts.append(Vector2(arc_end.x, -Layout.WAGON_GAP))
+		var idx := i
+		var delay_tween := create_tween()
+		delay_tween.tween_interval(idx * 0.18)
+		delay_tween.tween_callback(func():
+			_animate_along_path(wagon, pts, wagon.queue_free)
 		)
 
 func _animate_to_repair(wagons: Array) -> void:
