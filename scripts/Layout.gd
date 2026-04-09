@@ -202,7 +202,6 @@ static func get_track_path_from_center(track_index: int, slot: int) -> PackedVec
 	return pts
 
 
-const LOCO_DEPOT_RECT    := Rect2(1310.0, 800.0, 180.0, 75.0)
 const REPAIR_DEPOT_RECT  := Rect2(1480.0, 808.0, 150.0, 74.0)  # будівля ремонту, колія 7
 const LOADING_DEPOT_RECT := Rect2(1415.0, 100.0, 130.0, 55.0)  # зона навантаження, біля виходу колії 1
 

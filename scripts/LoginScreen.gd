@@ -77,6 +77,7 @@ func _on_signin_pressed() -> void:
 	firebase.sign_in_with_google()
 
 func _on_auth_success(user_info: Dictionary) -> void:
+	UserSession.current_user = user_info
 	_label_status.text = "Вхід виконано: %s" % user_info.get("displayName", "")
 	await get_tree().create_timer(0.8).timeout
 	get_tree().change_scene_to_file(LEVEL_SELECT_SCENE)

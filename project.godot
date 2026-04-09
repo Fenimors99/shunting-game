@@ -23,6 +23,8 @@ config/features=PackedStringArray("4.6")
 [autoload]
 
 LevelConfig="*res://scripts/LevelConfig.gd"
+UserSession="*res://scripts/UserSession.gd"
+FirebaseDB="*res://scripts/FirebaseDB.gd"
 
 [display]
 
