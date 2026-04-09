@@ -26,6 +26,10 @@ var _score_label:  Label = null
 var _streak_label: Label = null
 var _spawn_btn:  Button = null
 var _finish_btn: Button = null
+var _help_btn:   Button = null
+var _tutorial_overlay:    ColorRect = null
+var _context_hint_overlay: Control = null
+var _hint_paused_by_us: bool = false
 
 const WAGON_ANIM_DELAY        := 0.18
 const WAGON_RETURN_DELAY      := Layout.WAGON_GAP / Layout.SPEED  # ~0.25 — фізична відстань між вагонами
@@ -47,6 +51,7 @@ func _ready() -> void:
 	task_manager.all_tasks_completed.connect(_on_all_tasks_completed)
 	station.repair_completed.connect(_on_repair_completed)
 	station.loading_completed.connect(_on_loading_completed)
+	station.disabled_btn_tapped.connect(_on_disabled_btn_tapped)
 	_create_start_button()
 	
 func _on_all_tasks_completed() -> void:
@@ -119,6 +124,7 @@ func _create_start_button() -> void:
 	_create_pause_ui()
 	if LevelConfig.current_level == 0:
 		_create_score_display()
+	_create_help_button()
 	
 func _create_timer_label() -> void:
 	if LevelConfig.current_level == 0:
@@ -317,7 +323,8 @@ func _create_pause_button() -> void:
 func _create_score_display() -> void:
 	const W      := 230.0
 	const H      := 62.0
-	const MARGIN := 16.0
+	# Відступ враховує кнопку "?" (62px) + gap (10px) + правий margin (16px)
+	const MARGIN := 88.0
 	var vp := get_viewport_rect().size
 
 	var box := Node2D.new()
@@ -352,7 +359,7 @@ func _update_score_display() -> void:
 		return
 	_score_label.text = "Бали: %d" % _total_score
 	if _streak >= 3:
-		_streak_label.text = "Серія ×2.0  🔥"
+		_streak_label.text = "Серія ×2.0  !!!"
 		_streak_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.15, 0.95))
 	elif _streak == 2:
 		_streak_label.text = "Серія ×1.5"
@@ -505,6 +512,11 @@ func _create_spawn_button() -> void:
 	_spawn_btn.pressed.connect(func():
 		queue.fill_to_limit()
 		_spawn_btn.queue_redraw()
+	)
+	_spawn_btn.gui_input.connect(func(event: InputEvent):
+		if _spawn_btn.disabled and event is InputEventMouseButton \
+				and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			_on_disabled_btn_tapped("spawn_busy")
 	)
 	add_child(_spawn_btn)
 	
@@ -703,3 +715,305 @@ func _on_repair_completed(wagons: Array) -> void:
 			if is_last:
 				queue.set_returning(false)
 		)
+
+# ─────────────────────────────────────────────
+# Кнопка допомоги "?"
+# ─────────────────────────────────────────────
+
+func _create_help_button() -> void:
+	const SIZE_PX := 62.0
+	const MARGIN  := 16.0
+	var vp := get_viewport_rect().size
+	_help_btn = Button.new()
+	_help_btn.custom_minimum_size = Vector2(SIZE_PX, SIZE_PX)
+	_help_btn.position = Vector2(vp.x - SIZE_PX - MARGIN, MARGIN)
+	_help_btn.flat = true
+	_help_btn.z_index = 2
+	_help_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	_help_btn.connect("draw", func():
+		var center := Vector2(SIZE_PX / 2, SIZE_PX / 2)
+		_help_btn.draw_circle(center, SIZE_PX / 2, Color(0.06, 0.09, 0.15, 0.96))
+		_help_btn.draw_arc(center, SIZE_PX / 2 - 1, 0, TAU, 64, Color(0.30, 0.45, 0.65, 0.8), 2.0, true)
+		var font := ThemeDB.fallback_font
+		var fs   := 34
+		var txt  := "?"
+		var tw   := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var asc  := font.get_ascent(fs)
+		_help_btn.draw_string(font, Vector2((SIZE_PX - tw) / 2.0, (SIZE_PX + asc) / 2.0 - 3),
+			txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.80, 0.88, 1.00, 0.95))
+	)
+	_help_btn.pressed.connect(_on_help_pressed)
+	add_child(_help_btn)
+
+func _on_help_pressed() -> void:
+	if _timer_running and not get_tree().paused:
+		get_tree().paused = true
+		if _pause_btn != null:
+			_pause_btn.visible = false
+		_hint_paused_by_us = true
+	else:
+		_hint_paused_by_us = false
+	_show_tutorial()
+
+# ─────────────────────────────────────────────
+# Повноекранний туторіал
+# ─────────────────────────────────────────────
+
+func _show_tutorial() -> void:
+	if _tutorial_overlay != null:
+		return
+	var vp := get_viewport_rect().size
+
+	_tutorial_overlay = ColorRect.new()
+	_tutorial_overlay.color = Color(0.0, 0.0, 0.0, 0.82)
+	_tutorial_overlay.size  = vp
+	_tutorial_overlay.z_index = 62
+	_tutorial_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_tutorial_overlay)
+
+	const PW := 1100.0
+	const PH := 720.0
+	var panel := Panel.new()
+	panel.size     = Vector2(PW, PH)
+	panel.position = (vp - panel.size) / 2.0
+	panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	var ps := StyleBoxFlat.new()
+	ps.bg_color     = Color(0.06, 0.09, 0.15, 0.99)
+	ps.border_color = Color(0.30, 0.45, 0.65, 1.0)
+	ps.set_border_width_all(2)
+	ps.set_corner_radius_all(20)
+	panel.add_theme_stylebox_override("panel", ps)
+	_tutorial_overlay.add_child(panel)
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Як грати"
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.size     = Vector2(PW, 56)
+	title_lbl.position = Vector2(0, 18)
+	title_lbl.add_theme_font_size_override("font_size", 36)
+	title_lbl.add_theme_color_override("font_color", Color(0.80, 0.88, 1.00))
+	panel.add_child(title_lbl)
+
+	var close_btn := Button.new()
+	close_btn.text = "✕"
+	close_btn.custom_minimum_size = Vector2(44, 44)
+	close_btn.position = Vector2(PW - 58, 14)
+	close_btn.flat = true
+	close_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	close_btn.add_theme_font_size_override("font_size", 22)
+	close_btn.add_theme_color_override("font_color", Color(0.65, 0.75, 0.90))
+	close_btn.pressed.connect(_hide_tutorial)
+	panel.add_child(close_btn)
+
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(24, 74)
+	scroll.size     = Vector2(PW - 48, PH - 92)
+	scroll.process_mode = Node.PROCESS_MODE_ALWAYS
+	panel.add_child(scroll)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 18)
+	vbox.custom_minimum_size = Vector2(PW - 68, 0)
+	scroll.add_child(vbox)
+
+	_make_tutorial_section(vbox,
+		"1. Черга вагонів",
+		"Вагони з'являються праворуч і рухаються до сортувальної станції. Коли вагон зупиняється — призначте його на колію за допомогою кнопки «+» ліворуч від колії. Кнопка «+» у правій нижній частині екрана додає нові вагони в чергу (до 8 одиниць)."
+	)
+	_make_tutorial_section(vbox,
+		"2. Колії та дії",
+		"Натисніть кнопку входу «+» (ліворуч від колії), щоб направити поточний вагон. Натисніть кнопку виходу «>» (праворуч), щоб зняти всі вагони з колії.\n\n• Колія 1 — вантажна: приймає лише вантажні вагони (Білого кольору), для подальшої обробки (Перетворення кольору на рожевий).\n• Колія 7 — ремонтна: приймає лише пошкоджені вагони (Червоні), для подальшого ремонтування (Перетворення кольору на білий).\n• Колії 2–6 — звичайні: для сортування та виконання завдань."
+	)
+	_make_tutorial_section(vbox,
+		"3. Завдання (Сортувальний листок)",
+		"У панелі зліва відображаються активні завдання — потрібні кольори вагонів та їх кількість. Зберіть відповідні вагони на одній колії та натисніть «>», потім «Здати». Якщо склад точно відповідає завданню — воно виконається і зарахується.\n\nКнопка «В чергу» повертає вагони назад у чергу (але скидає серію у нескінченному режимі)."
+	)
+	_make_tutorial_section(vbox,
+		"4. Локомотиви",
+		"Для виходу вагонів з будь-якої колії потрібен локомотив. Доступно 3 локомотиви — кожен повертається приблизно через 20 секунд після використання. Слідкуйте за індикатором депо: якщо всі локомотиви зайняті, кнопки виходу будуть недоступні."
+	)
+	_make_tutorial_section(vbox,
+		"5. Бали та серія (нескінченний режим)",
+		"Кожне виконане завдання приносить очки. Складніші завдання (більше вагонів) дають більше очок (10, 20, 30, 50 та 100 відповідно до складності).\n\n• 2 здачі підряд → серія ×1.5\n• 3+ здачі підряд → серія ×2.0 !!!\n\nПовернення вагонів у чергу скидає серію. Рожеві вагони (після вантажу або після ремонту та вантажу) дають +10% бонусу за кожен."
+	)
+	_make_tutorial_section(vbox,
+		"6. Режими гри",
+		"Рівні (1–3): задана послідовність вагонів у черзі та фіксований набір завдань. Всі завдання відомі заздалегідь. Ціль — виконати всі завдання якнайшвидше. Результат фіксується як час проходження.\n\nНескінченний режим (∞): нові завдання генеруються безперервно після кожного виконання. Грайте, поки хочете — завершіть гру кнопкою «Завершити гру». Результат — кількість набраних очок. Змагайтесь з іншими гравцями та займайте якнайвище місце у таблиці лідерів!"
+	)
+
+func _hide_tutorial() -> void:
+	if _tutorial_overlay != null:
+		_tutorial_overlay.queue_free()
+		_tutorial_overlay = null
+	if _hint_paused_by_us and get_tree().paused and \
+			(_pause_overlay == null or not _pause_overlay.visible):
+		get_tree().paused = false
+		if _pause_btn != null and _timer_running:
+			_pause_btn.visible = true
+	_hint_paused_by_us = false
+
+func _make_tutorial_section(parent: VBoxContainer, title: String, body: String) -> void:
+	var title_lbl := Label.new()
+	title_lbl.text = title
+	title_lbl.add_theme_font_size_override("font_size", 22)
+	title_lbl.add_theme_color_override("font_color", Color(0.40, 0.75, 1.00))
+	parent.add_child(title_lbl)
+
+	var body_lbl := Label.new()
+	body_lbl.text = body
+	body_lbl.add_theme_font_size_override("font_size", 17)
+	body_lbl.add_theme_color_override("font_color", Color(0.82, 0.88, 0.95))
+	body_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body_lbl.custom_minimum_size = Vector2(1040, 0)
+	parent.add_child(body_lbl)
+
+	var sep := HSeparator.new()
+	sep.add_theme_color_override("color", Color(0.25, 0.35, 0.55, 0.5))
+	parent.add_child(sep)
+
+# ─────────────────────────────────────────────
+# Контекстний хінт для задизейблених кнопок
+# ─────────────────────────────────────────────
+
+func _on_disabled_btn_tapped(reason: String) -> void:
+	if _context_hint_overlay != null:
+		return
+	if _timer_running and not get_tree().paused:
+		get_tree().paused = true
+		if _pause_btn != null:
+			_pause_btn.visible = false
+		_hint_paused_by_us = true
+	var info := _reason_to_hint(reason)
+	_show_context_hint(info[0], info[1])
+
+func _reason_to_hint(reason: String) -> Array:
+	match reason:
+		"track_full":
+			return ["Колія заповнена",
+				"На цій колії вже немає вільних місць. Спочатку відправте вагони з колії кнопкою «>»."]
+		"incompatible":
+			return ["Несумісний тип вагону",
+				"Цей тип вагону не може заїхати на дану колію.\n\n• Колія 1 — лише для вантажних вагонів (Білих)\n• Колія 7 — лише для пошкоджених вагонів (Червоних)\n• Колії 2–6 — для всіх інших вагонів"]
+		"no_wagons":
+			return ["На колії немає вагонів",
+				"Спочатку направте вагони на колію за допомогою кнопки «+»."]
+		"in_transit":
+			return ["Вагони вже рухаються",
+				"З цієї колії вже виходять вагони. Зачекайте, поки рух завершиться."]
+		"no_loco":
+			return ["Немає вільного локомотива",
+				"Для виходу вагонів з колії потрібен локомотив. Усі 3 локомотиви зараз зайняті — дочекайтесь повернення (таймери локомотивів над сортувальною станцією)."]
+		"repair_busy":
+			return ["Ремонтне депо зайняте",
+				"Вагони вже знаходяться в ремонтному депо. Дочекайтесь завершення ремонту та виводу вагонів."]
+		"loading_busy":
+			return ["Вантажний термінал зайнятий",
+				"Вагони вже обробляються на вантажному терміналі. Дочекайтесь завершення та виводу вагонів."]
+		"submit_mismatch":
+			return ["Не відповідає жодному завданню",
+				"Поточний склад вагонів на колії не збігається з жодним активним завданням. Перевірте «Сортувальний листок» — кольори та кількість мають точно відповідати вимогам."]
+		"queue_full":
+			return ["Черга вагонів заповнена",
+				"В черзі немає місця для повернення вагонів або вагони зараз прямують до кінця черги."]
+		"release_queue_full":
+			return ["Черга вагонів заповнена",
+				"Немає місця в черзі для прийому вагонів з депо або вагони зараз прямують до кінця."]
+		"spawn_busy":
+			return ["Черга не готова",
+				"Черга вагонів заповнена або вагони ще рухаються в кінець черги"]
+	return ["Дія недоступна", "Ця кнопка зараз неактивна. Спробуйте пізніше та зверніться до команди розробки. Ця помилка не була спланована"]
+
+func _show_context_hint(title: String, body: String) -> void:
+	var vp := get_viewport_rect().size
+
+	# Фон — ColorRect на весь екран (як в решті модалів)
+	_context_hint_overlay = Control.new()
+	_context_hint_overlay.z_index = 63
+	_context_hint_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_context_hint_overlay)
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.0, 0.0, 0.0, 0.65)
+	bg.size  = vp
+	bg.process_mode = Node.PROCESS_MODE_ALWAYS
+	_context_hint_overlay.add_child(bg)
+
+	# PanelContainer — автоматично тягнеться за VBoxContainer
+	const PW := 564.0
+	const PAD_H := 32.0
+	const PAD_V := 26.0
+	var pc := PanelContainer.new()
+	pc.process_mode = Node.PROCESS_MODE_ALWAYS
+	var ps := StyleBoxFlat.new()
+	ps.bg_color     = Color(0.06, 0.09, 0.15, 0.99)
+	ps.border_color = Color(0.45, 0.60, 0.85, 1.0)
+	ps.set_border_width_all(2)
+	ps.set_corner_radius_all(16)
+	ps.content_margin_left   = PAD_H
+	ps.content_margin_right  = PAD_H
+	ps.content_margin_top    = PAD_V
+	ps.content_margin_bottom = PAD_V
+	pc.add_theme_stylebox_override("panel", ps)
+	_context_hint_overlay.add_child(pc)
+
+	var vbox := VBoxContainer.new()
+	vbox.custom_minimum_size = Vector2(PW - PAD_H * 2, 0)
+	vbox.add_theme_constant_override("separation", 14)
+	pc.add_child(vbox)
+
+	var title_lbl := Label.new()
+	title_lbl.text = title
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.add_theme_font_size_override("font_size", 26)
+	title_lbl.add_theme_color_override("font_color", Color(0.85, 0.93, 1.00))
+	vbox.add_child(title_lbl)
+
+	var body_lbl := Label.new()
+	body_lbl.text = body
+	body_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body_lbl.add_theme_font_size_override("font_size", 16)
+	body_lbl.add_theme_color_override("font_color", Color(0.72, 0.80, 0.92))
+	body_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body_lbl.custom_minimum_size = Vector2(PW - PAD_H * 2, 0)
+	vbox.add_child(body_lbl)
+
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 6)
+	vbox.add_child(spacer)
+
+	var ok_btn := Button.new()
+	ok_btn.text = "Зрозуміло"
+	ok_btn.custom_minimum_size = Vector2(160, 48)
+	ok_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	ok_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	var bs := StyleBoxFlat.new()
+	bs.bg_color     = Color(0.15, 0.35, 0.65, 0.95)
+	bs.border_color = Color(0.35, 0.60, 1.00)
+	bs.set_border_width_all(1)
+	bs.set_corner_radius_all(10)
+	var bsh := bs.duplicate()
+	bsh.bg_color = Color(0.22, 0.48, 0.85, 0.95)
+	ok_btn.add_theme_stylebox_override("normal",  bs)
+	ok_btn.add_theme_stylebox_override("hover",   bsh)
+	ok_btn.add_theme_stylebox_override("pressed", bsh)
+	ok_btn.add_theme_font_size_override("font_size", 20)
+	ok_btn.add_theme_color_override("font_color", Color.WHITE)
+	ok_btn.pressed.connect(_hide_context_hint)
+	vbox.add_child(ok_btn)
+
+	# Центруємо після того як Godot прорахує layout (deferred)
+	var pc_ref := pc
+	(func():
+		pc_ref.position = (vp - pc_ref.size) / 2.0
+	).call_deferred()
+
+func _hide_context_hint() -> void:
+	if _context_hint_overlay != null:
+		_context_hint_overlay.queue_free()
+		_context_hint_overlay = null
+	if _hint_paused_by_us and get_tree().paused and \
+			(_pause_overlay == null or not _pause_overlay.visible):
+		get_tree().paused = false
+		if _pause_btn != null and _timer_running:
+			_pause_btn.visible = true
+	_hint_paused_by_us = false
