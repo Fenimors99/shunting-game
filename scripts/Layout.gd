@@ -24,8 +24,10 @@ const SPEED := 440.0
 # Відстань між центрами вагонів
 const WAGON_GAP := 110.0
 
-# Скільки вагонів видно знизу одразу
+# Скільки вагонів видно знизу одразу (початковий спавн)
 const QUEUE_VISIBLE_LIMIT := 8
+# Максимальна місткість черги (понад цього — блокуємо повернення)
+const QUEUE_MAX_CAPACITY := 16
 
 # X де горизонтальна черга закінчується і починається L-поворот
 const QUEUE_STOP_X := 200.0
@@ -36,9 +38,6 @@ const QUEUE_ARC_R  := 100.0
 const EXIT_RAIL_X  := SCREEN_W - DIST_RAIL_X   # 1470
 # X вертикального сегменту правого L-повороту (дзеркало QUEUE_STOP_X)
 const EXIT_STOP_X  := SCREEN_W - QUEUE_STOP_X  # 1720
-
-# Раз на скільки секунд випускається новий вагон із-за екрана
-const QUEUE_SPAWN_INTERVAL := 1.0
 
 # Початкова X-позиція першого вагона
 const QUEUE_START_X := 1200.0

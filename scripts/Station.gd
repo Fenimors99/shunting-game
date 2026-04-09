@@ -38,14 +38,19 @@ var _repair_status_label:  Label  = null
 var _loading_status_box:   Node2D = null
 var _loading_status_label: Label  = null
 
+var _queue_buttons: Array = []       # Array[Button], кнопка "В чергу" per track
+var _wagon_queue: WagonQueue = null
+
 func _ready() -> void:
 	_track_wagons.resize(Layout.TRACK_COUNT)
 	_track_reserved.resize(Layout.TRACK_COUNT)
 	_submit_buttons.resize(Layout.TRACK_COUNT)
+	_queue_buttons.resize(Layout.TRACK_COUNT)
 	for i in Layout.TRACK_COUNT:
 		_track_wagons[i] = []
 		_track_reserved[i] = 0
 		_submit_buttons[i] = null
+		_queue_buttons[i] = null
 	_create_entry_buttons()
 	_create_exit_buttons()
 	_create_choice_containers()
@@ -158,6 +163,16 @@ func _process(delta: float) -> void:
 		if _loading_timer == 0.0 and _loading_btn == null:
 			_loading_status_box.visible = false
 			_create_loading_release_btn()
+
+	if _wagon_queue != null:
+		if _repair_btn != null:
+			_repair_btn.disabled = not _wagon_queue.has_capacity_for(_repair_wagons.size())
+		if _loading_btn != null:
+			_loading_btn.disabled = not _wagon_queue.has_capacity_for(_loading_wagons.size())
+		for i in range(1, Layout.TRACK_COUNT + 1):
+			var btn_q: Button = _queue_buttons[i - 1]
+			if btn_q != null and _choice_containers[i - 1].visible:
+				btn_q.disabled = not _wagon_queue.has_capacity_for(get_wagon_count(i))
 
 func _create_repair_release_btn() -> void:
 	var btn := Button.new()
@@ -530,6 +545,9 @@ func _create_exit_buttons() -> void:
 func set_task_manager(tm: TaskManager) -> void:
 	_task_manager = tm
 
+func set_wagon_queue(q: WagonQueue) -> void:
+	_wagon_queue = q
+
 func refresh_all_exit_buttons() -> void:
 	for i in range(1, Layout.TRACK_COUNT + 1):
 		_refresh_exit_button(i)
@@ -588,6 +606,7 @@ func _create_choice_containers() -> void:
 		var btn_q := _make_choice_btn("В чергу", Color(0.45, 0.28, 0.08))
 		btn_q.position = Vector2(bx, y + 14)
 		container.add_child(btn_q)
+		_queue_buttons[i - 1] = btn_q
 
 		var idx := i
 		btn_s.pressed.connect(func(): _on_choice(idx, true))

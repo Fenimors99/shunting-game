@@ -24,6 +24,7 @@ var _total_score: int  = 0
 var _streak:      int  = 0   # кількість здач підряд без повернення в чергу
 var _score_label:  Label = null
 var _streak_label: Label = null
+var _spawn_btn: Button = null
 
 const WAGON_ANIM_DELAY        := 0.18
 const WAGON_RETURN_DELAY      := Layout.WAGON_GAP / Layout.SPEED  # ~0.25 — фізична відстань між вагонами
@@ -39,6 +40,7 @@ func _ready() -> void:
 	station.track_exit_choice.connect(_on_track_exit_choice)
 	loco_depot.availability_changed.connect(station.set_loco_available)
 	station.set_task_manager(task_manager)
+	station.set_wagon_queue(queue)
 	task_panel.init(task_manager, task_toggle_button)
 	task_manager.task_completed.connect(func(_i): station.refresh_all_exit_buttons())
 	task_manager.all_tasks_completed.connect(_on_all_tasks_completed)
@@ -143,6 +145,11 @@ func _process(delta: float) -> void:
 	if _timer_running:
 		_time_elapsed += delta
 		_timer_label.text = "Час: " + _format_time(_time_elapsed)
+	if _spawn_btn != null:
+		var should_disable := not queue.is_below_limit() or queue._returning or queue._spawn_settle_timer > 0.0
+		if _spawn_btn.disabled != should_disable:
+			_spawn_btn.disabled = should_disable
+			_spawn_btn.queue_redraw()
 
 func _format_time(time_in_sec: float) -> String:
 	var m := int(time_in_sec) / 60
@@ -344,6 +351,38 @@ func _on_start_pressed(btn: Button) -> void:
 	queue.start()
 	_timer_running = true
 	_pause_btn.visible = true
+	_create_spawn_button()
+
+func _create_spawn_button() -> void:
+	const SIZE := 62.0
+	const MARGIN := 16.0
+	var vp := get_viewport_rect().size
+	_spawn_btn = Button.new()
+	_spawn_btn.custom_minimum_size = Vector2(SIZE, SIZE)
+	_spawn_btn.position = Vector2(vp.x - SIZE - MARGIN, Layout.QUEUE_Y - SIZE * 1.5)
+	_spawn_btn.flat = true
+	_spawn_btn.z_index = 1
+	_spawn_btn.connect("draw", func():
+		var center := Vector2(SIZE / 2.0, SIZE / 2.0)
+		var color_bg     := Color(0.10, 0.30, 0.60, 0.95)
+		var color_border := Color(0.35, 0.60, 1.00, 0.9)
+		var color_icon   := Color(1.0, 1.0, 1.0, 0.95)
+		if _spawn_btn.disabled:
+			color_bg     = Color(0.15, 0.15, 0.20, 0.6)
+			color_border = Color(0.3, 0.3, 0.4, 0.5)
+			color_icon   = Color(0.5, 0.5, 0.55, 0.5)
+		_spawn_btn.draw_circle(center, SIZE / 2.0, color_bg)
+		_spawn_btn.draw_arc(center, SIZE / 2.0 - 1.0, 0.0, TAU, 64, color_border, 2.0, true)
+		var t := SIZE / 2.0
+		var arm := 13.0
+		_spawn_btn.draw_line(Vector2(t - arm, t), Vector2(t + arm, t), color_icon, 3.0, true)
+		_spawn_btn.draw_line(Vector2(t, t - arm), Vector2(t, t + arm), color_icon, 3.0, true)
+	)
+	_spawn_btn.pressed.connect(func():
+		queue.fill_to_limit()
+		_spawn_btn.queue_redraw()
+	)
+	add_child(_spawn_btn)
 	
 func _on_track_entry_tapped(track_index: int) -> void:
 	if _wagon_at_center == null:
@@ -447,6 +486,7 @@ func _animate_exit(wagons: Array, track_index: int) -> void:
 		_animate_delayed(wagon, pts, i * WAGON_ANIM_DELAY, wagon.queue_free)
 
 func _return_to_queue(wagons: Array, track_index: int) -> void:
+	queue.set_returning(true)
 	var exit_arc    := Layout.get_exit_arc()
 	var base_tail_x := queue.get_tail_x() + Layout.WAGON_GAP
 	for i in wagons.size():
@@ -454,9 +494,12 @@ func _return_to_queue(wagons: Array, track_index: int) -> void:
 		var pts := _build_exit_path_to_center(wagon, track_index)
 		pts.append_array(exit_arc)
 		pts.append(Vector2(base_tail_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y))
+		var is_last := (i == wagons.size() - 1)
 		_animate_delayed(wagon, pts, i * WAGON_ANIM_DELAY, func():
 			wagon.rotation = PI
 			queue.receive_wagon(wagon)
+			if is_last:
+				queue.set_returning(false)
 		)
 
 func _animate_submit(wagons: Array, track_index: int) -> void:
@@ -496,6 +539,7 @@ func _animate_to_repair(wagons: Array) -> void:
 		)
 
 func _on_loading_completed(wagons: Array) -> void:
+	queue.set_returning(true)
 	var ret_x       := Layout.get_loading_return_x()
 	var ret_arc     := Layout.get_loading_return_arc()
 	var exit_arc    := Layout.get_exit_arc()
@@ -509,12 +553,16 @@ func _on_loading_completed(wagons: Array) -> void:
 		pts.append_array(ret_arc)                    # → (1620, 575) вправо
 		pts.append_array(exit_arc.slice(2))          # крок 3+: дуга→вертикаль→дуга→QUEUE_Y
 		pts.append(Vector2(base_tail_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y))
+		var is_last := (i == wagons.size() - 1)
 		_animate_delayed(wagon, pts, i * WAGON_RETURN_DELAY, func():
 			wagon.rotation = PI
 			queue.receive_wagon(wagon)
+			if is_last:
+				queue.set_returning(false)
 		)
 
 func _on_repair_completed(wagons: Array) -> void:
+	queue.set_returning(true)
 	var arc         := Layout.get_repair_exit_arc()
 	var base_tail_x := queue.get_tail_x() + Layout.WAGON_GAP
 	for i in wagons.size():
@@ -524,7 +572,10 @@ func _on_repair_completed(wagons: Array) -> void:
 		pts.append(wagon.position)
 		pts.append_array(arc)
 		pts.append(Vector2(base_tail_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y))
+		var is_last := (i == wagons.size() - 1)
 		_animate_delayed(wagon, pts, i * WAGON_RETURN_DELAY, func():
 			wagon.rotation = PI
 			queue.receive_wagon(wagon)
+			if is_last:
+				queue.set_returning(false)
 		)
