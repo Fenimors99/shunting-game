@@ -54,6 +54,18 @@ func _build_ui() -> void:
 	var purple_color := Color(0.60, 0.20, 0.70)
 	grid.add_child(_create_level_button("∞", 0, purple_color))
 
+	# Ім'я користувача — правий верхній кут
+	var user_name: String = UserSession.current_user.get("displayName", "")
+	if not user_name.is_empty():
+		var user_lbl := Label.new()
+		user_lbl.text = user_name
+		user_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		user_lbl.position = Vector2(vp.x - 300 - 20, 20)
+		user_lbl.size     = Vector2(300, 36)
+		user_lbl.add_theme_font_size_override("font_size", 18)
+		user_lbl.add_theme_color_override("font_color", Color(0.65, 0.78, 1.00, 0.85))
+		add_child(user_lbl)
+
 	# Кнопка рейтингу — знизу по центру
 	var lb_btn := Button.new()
 	lb_btn.text = "Рейтинг"
