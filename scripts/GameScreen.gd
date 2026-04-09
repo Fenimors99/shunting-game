@@ -24,7 +24,8 @@ var _total_score: int  = 0
 var _streak:      int  = 0   # кількість здач підряд без повернення в чергу
 var _score_label:  Label = null
 var _streak_label: Label = null
-var _spawn_btn: Button = null
+var _spawn_btn:  Button = null
+var _finish_btn: Button = null
 
 const WAGON_ANIM_DELAY        := 0.18
 const WAGON_RETURN_DELAY      := Layout.WAGON_GAP / Layout.SPEED  # ~0.25 — фізична відстань між вагонами
@@ -120,12 +121,14 @@ func _create_start_button() -> void:
 		_create_score_display()
 	
 func _create_timer_label() -> void:
+	if LevelConfig.current_level == 0:
+		_create_finish_button()
+		return
 	const W := 210.0
 	const H := 62.0
 	const PAUSE_SIZE := 62.0
 	const GAP := 10.0
 	var vp := get_viewport_rect().size
-	# Центруємо таймер + кнопку паузи разом
 	var total_w := W + GAP + PAUSE_SIZE
 	var start_x := (vp.x - total_w) / 2.0
 	var box := Node2D.new()
@@ -144,10 +147,126 @@ func _create_timer_label() -> void:
 	box.add_child(_timer_label)
 	add_child(box)
 
+
+func _create_finish_button() -> void:
+	const W         := 210.0
+	const H         := 62.0
+	const PAUSE_SIZE := 62.0
+	const GAP       := 10.0
+	var vp      := get_viewport_rect().size
+	var start_x := (vp.x - W - GAP - PAUSE_SIZE) / 2.0
+	var btn := Button.new()
+	btn.text = "Завершити гру"
+	btn.custom_minimum_size = Vector2(W, H)
+	btn.position = Vector2(start_x, 16)
+	btn.z_index  = 1
+	btn.visible  = false  # показуємо після старту разом з паузою
+	var s := StyleBoxFlat.new()
+	s.bg_color     = Color(0.06, 0.09, 0.15, 0.96)
+	s.border_color = Color(0.30, 0.45, 0.65, 0.80)
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(8)
+	var sh := s.duplicate()
+	sh.bg_color = Color(0.10, 0.18, 0.30, 0.96)
+	btn.add_theme_stylebox_override("normal",  s)
+	btn.add_theme_stylebox_override("hover",   sh)
+	btn.add_theme_stylebox_override("pressed", sh)
+	btn.add_theme_font_size_override("font_size", 20)
+	btn.add_theme_color_override("font_color", Color(0.80, 0.88, 1.00, 0.95))
+	btn.pressed.connect(_on_finish_pressed)
+	add_child(btn)
+	# зберігаємо посилання щоб показати після старту
+	_finish_btn = btn
+
+
+func _on_finish_pressed() -> void:
+	get_tree().paused = true
+	_show_finish_confirm()
+
+
+func _show_finish_confirm() -> void:
+	var vp := get_viewport_rect().size
+	var overlay := ColorRect.new()
+	overlay.name  = "FinishConfirmOverlay"
+	overlay.color = Color(0.0, 0.0, 0.0, 0.65)
+	overlay.size  = vp
+	overlay.z_index = 60
+	overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(overlay)
+
+	var pw := 380.0
+	var ph := 200.0
+	var panel := Panel.new()
+	panel.size     = Vector2(pw, ph)
+	panel.position = (vp - panel.size) / 2.0
+	panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	var ps := StyleBoxFlat.new()
+	ps.bg_color     = Color(0.06, 0.09, 0.15, 0.98)
+	ps.border_color = Color(0.30, 0.45, 0.65, 1.0)
+	ps.set_border_width_all(2)
+	ps.set_corner_radius_all(16)
+	panel.add_theme_stylebox_override("panel", ps)
+	overlay.add_child(panel)
+
+	var lbl := Label.new()
+	lbl.text = "Завершити гру?"
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.position = Vector2(0, 40)
+	lbl.size     = Vector2(pw, 40)
+	lbl.add_theme_font_size_override("font_size", 28)
+	lbl.add_theme_color_override("font_color", Color(0.85, 0.93, 1.00))
+	panel.add_child(lbl)
+
+	var sub := Label.new()
+	sub.text = "Результат буде збережено"
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.position = Vector2(0, 84)
+	sub.size     = Vector2(pw, 24)
+	sub.add_theme_font_size_override("font_size", 14)
+	sub.add_theme_color_override("font_color", Color(0.55, 0.70, 0.90, 0.75))
+	panel.add_child(sub)
+
+	var make_btn := func(txt: String, col: Color) -> Button:
+		var b := Button.new()
+		b.text = txt
+		b.custom_minimum_size = Vector2(130, 52)
+		var bs := StyleBoxFlat.new()
+		bs.bg_color = col.darkened(0.3)
+		bs.border_color = col
+		bs.set_border_width_all(1)
+		bs.set_corner_radius_all(10)
+		var bsh := bs.duplicate()
+		bsh.bg_color = col.darkened(0.1)
+		b.add_theme_stylebox_override("normal",  bs)
+		b.add_theme_stylebox_override("hover",   bsh)
+		b.add_theme_stylebox_override("pressed", bsh)
+		b.add_theme_font_size_override("font_size", 20)
+		b.process_mode = Node.PROCESS_MODE_ALWAYS
+		return b
+
+	var btn_yes: Button = make_btn.call("Так", Color(0.3, 0.8, 0.4))
+	btn_yes.position = Vector2(50, 130)
+	btn_yes.pressed.connect(func():
+		overlay.queue_free()
+		get_tree().paused = false
+		_timer_running = false
+		_start_victory_transition()
+	)
+	panel.add_child(btn_yes)
+
+	var btn_no: Button = make_btn.call("Ні", Color(0.8, 0.3, 0.3))
+	btn_no.position = Vector2(200, 130)
+	btn_no.pressed.connect(func():
+		overlay.queue_free()
+		get_tree().paused = false
+	)
+	panel.add_child(btn_no)
+
 func _process(delta: float) -> void:
 	if _timer_running:
 		_time_elapsed += delta
-		_timer_label.text = "Час: " + _format_time(_time_elapsed)
+		if _timer_label != null:
+			_timer_label.text = "Час: " + _format_time(_time_elapsed)
 	if _spawn_btn != null:
 		var should_disable := not queue.is_below_limit() or queue._returning or queue._spawn_settle_timer > 0.0
 		if _spawn_btn.disabled != should_disable:
@@ -354,6 +473,8 @@ func _on_start_pressed(btn: Button) -> void:
 	queue.start()
 	_timer_running = true
 	_pause_btn.visible = true
+	if _finish_btn != null:
+		_finish_btn.visible = true
 	_create_spawn_button()
 
 func _create_spawn_button() -> void:

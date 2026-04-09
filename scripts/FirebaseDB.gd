@@ -1,5 +1,4 @@
 extends Node
-class_name FirebaseDB
 
 signal score_submitted
 signal score_submit_failed(error: String)
@@ -37,7 +36,7 @@ func submit_score(level: int, score: int, time_seconds: float) -> void:
 
 func fetch_leaderboard(level: int, limit: int = 10) -> void:
 	if not _is_web:
-		leaderboard_loaded.emit([])
+		leaderboard_loaded.emit(_mock_leaderboard(level, limit))
 		return
 	JavaScriptBridge.get_interface("window").fbFetchLeaderboard(
 		level, limit, _fetch_done_cb, _fetch_err_cb
@@ -60,3 +59,16 @@ func _on_fetch_done(args: Array) -> void:
 
 func _on_fetch_error(_args: Array) -> void:
 	leaderboard_loaded.emit([])
+
+
+func _mock_leaderboard(level: int, limit: int) -> Array:
+	if level != 0:
+		return []
+	var entries := [
+		{ "uid": "mock1", "displayName": "Залізничник",  "score": 4800, "timeSeconds": 0 },
+		{ "uid": "mock2", "displayName": "Стрілочник",   "score": 3200, "timeSeconds": 0 },
+		{ "uid": "mock3", "displayName": "Новачок",      "score": 1500, "timeSeconds": 0 },
+		{ "uid": "mock4", "displayName": "Черговий",     "score":  900, "timeSeconds": 0 },
+		{ "uid": "mock5", "displayName": "Машиніст",     "score":  420, "timeSeconds": 0 },
+	]
+	return entries.slice(0, limit)

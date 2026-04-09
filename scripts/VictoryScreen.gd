@@ -12,6 +12,18 @@ var _lb_container: VBoxContainer = null
 var _pw: float = 560.0
 
 
+static func _plural_baly(n: int) -> String:
+	var abs_n := absi(n)
+	var last2 := abs_n % 100
+	var last1 := abs_n % 10
+	if last2 >= 11 and last2 <= 14:
+		return "%d балів" % n
+	match last1:
+		1: return "%d бал" % n
+		2, 3, 4: return "%d бали" % n
+		_: return "%d балів" % n
+
+
 func _ready() -> void:
 	var vp := get_viewport_rect().size
 	_pw = 560.0
@@ -37,7 +49,7 @@ func _ready() -> void:
 
 	# Заголовок
 	var title := Label.new()
-	title.text = "Усі завдання виконано!"
+	title.text = "Вітаємо!" if level_index == 0 else "Усі завдання виконано!"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.position = Vector2(0, 28)
 	title.size     = Vector2(_pw, 48)
@@ -57,7 +69,7 @@ func _ready() -> void:
 	# Час / бали
 	var result_text: String
 	if level_index == 0:
-		result_text = "Ваш результат: %d балів" % final_score
+		result_text = "Ваш результат: " + _plural_baly(final_score)
 	else:
 		result_text = "Ваш час: " + final_time
 	var time_lbl := Label.new()
@@ -151,13 +163,13 @@ func _on_leaderboard_loaded(entries: Array) -> void:
 		_lb_container.add_child(empty_lbl)
 		return
 
-	var current_uid := UserSession.current_user.get("uid", "")
+	var current_uid: String = UserSession.current_user.get("uid", "")
 
 	for i in entries.size():
 		var entry: Dictionary = entries[i]
 		var uid: String        = entry.get("uid", "")
 		var name_str: String   = entry.get("displayName", "?")
-		var is_me := (uid == current_uid)
+		var is_me: bool = (uid == current_uid)
 
 		var row := Panel.new()
 		row.custom_minimum_size = Vector2(0, 26)
@@ -187,7 +199,7 @@ func _on_leaderboard_loaded(entries: Array) -> void:
 
 		var val_lbl := Label.new()
 		if level_index == 0:
-			val_lbl.text = "%d" % int(entry.get("score", 0))
+			val_lbl.text = _plural_baly(int(entry.get("score", 0)))
 		else:
 			var t := int(entry.get("timeSeconds", 0))
 			val_lbl.text = "%02d:%02d" % [t / 60, t % 60]
