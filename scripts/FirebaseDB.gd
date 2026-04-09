@@ -59,5 +59,3 @@ func _on_fetch_done(args: Array) -> void:
 
 func _on_fetch_error(_args: Array) -> void:
 	leaderboard_loaded.emit([])
-
-

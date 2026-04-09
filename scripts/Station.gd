@@ -12,6 +12,7 @@ signal track_exit_tapped(track_index: int)
 signal track_exit_choice(track_index: int, submit: bool)
 signal repair_completed(wagons: Array)
 signal loading_completed(wagons: Array)
+signal disabled_btn_tapped(reason: String)
 
 const REPAIR_TIME  := 20.0
 const LOADING_TIME := 20.0
@@ -196,6 +197,7 @@ func _create_repair_release_btn() -> void:
 	_repair_btn = btn
 	btn.pressed.connect(_on_repair_release)
 	add_child(btn)
+	_connect_disabled_hint(btn, func() -> String: return "release_queue_full")
 
 func _on_repair_release() -> void:
 	_repair_btn.queue_free()
@@ -237,6 +239,7 @@ func _create_loading_release_btn() -> void:
 	_loading_btn = btn
 	btn.pressed.connect(_on_loading_release)
 	add_child(btn)
+	_connect_disabled_hint(btn, func() -> String: return "release_queue_full")
 
 func _on_loading_release() -> void:
 	_loading_btn.queue_free()
@@ -495,6 +498,10 @@ func _create_entry_buttons() -> void:
 		btn.pressed.connect(func(): track_entry_tapped.emit(idx))
 		add_child(btn)
 		_entry_buttons.append(btn)
+		_connect_disabled_hint(btn, func() -> String:
+			if is_track_full(idx): return "track_full"
+			return "incompatible"
+		)
 
 func set_entry_filter(wagon_type: Wagon.WagonType) -> void:
 	_filter_active = true
@@ -541,6 +548,14 @@ func _create_exit_buttons() -> void:
 		add_child(btn)
 		_exit_buttons.append(btn)
 		_set_exit_btn_green(i)
+		_connect_disabled_hint(btn, func() -> String:
+			if get_wagon_count(idx) == 0: return "no_wagons"
+			if _track_reserved[idx - 1] > get_wagon_count(idx): return "in_transit"
+			if not _loco_available: return "no_loco"
+			if idx == Layout.REPAIR_TRACK and not _repair_wagons.is_empty(): return "repair_busy"
+			if idx == Layout.CARGO_TRACK and not _loading_wagons.is_empty(): return "loading_busy"
+			return "no_wagons"
+		)
 
 func set_task_manager(tm: TaskManager) -> void:
 	_task_manager = tm
@@ -611,6 +626,8 @@ func _create_choice_containers() -> void:
 		var idx := i
 		btn_s.pressed.connect(func(): _on_choice(idx, true))
 		btn_q.pressed.connect(func(): _on_choice(idx, false))
+		_connect_disabled_hint(btn_s, func() -> String: return "submit_mismatch")
+		_connect_disabled_hint(btn_q, func() -> String: return "queue_full")
 		
 
 func _hide_choice(track_index: int) -> void:
@@ -659,6 +676,13 @@ func _set_exit_btn_red(track_index: int) -> void:
 	btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.8, 0.2, 0.2, 0.9)))
 	btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.9, 0.3, 0.3)))
 	btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.6, 0.1, 0.1)))
+
+func _connect_disabled_hint(btn: Button, reason_fn: Callable) -> void:
+	btn.gui_input.connect(func(event: InputEvent):
+		if btn.disabled and event is InputEventMouseButton \
+				and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			disabled_btn_tapped.emit(reason_fn.call())
+	)
 
 func _make_circle_style(color: Color) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
