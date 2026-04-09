@@ -10,6 +10,11 @@ const COLOR_BORDER        := Color(0.3, 0.4, 0.55, 0.5)
 signal track_entry_tapped(track_index: int)
 signal track_exit_tapped(track_index: int)
 signal track_exit_choice(track_index: int, submit: bool)
+signal repair_completed(wagons: Array)
+signal loading_completed(wagons: Array)
+
+const REPAIR_TIME  := 20.0
+const LOADING_TIME := 20.0
 
 var _track_wagons: Array = []      # Array[Array[Wagon]]
 var _track_reserved: Array = []    # int на колію: зарезервовані + припарковані
@@ -21,28 +26,83 @@ var _filter_active: bool = false
 var _filter_type: Wagon.WagonType = Wagon.WagonType.NORMAL
 var _loco_available: bool = true
 var _task_manager: TaskManager = null
+var _repair_wagons:  Array  = []
+var _repair_timer:   float  = 0.0
+var _repair_btn:     Button = null
+var _loading_wagons: Array  = []
+var _loading_timer:  float  = 0.0
+var _loading_btn:    Button = null
+
+var _repair_status_box:    Node2D = null
+var _repair_status_label:  Label  = null
+var _loading_status_box:   Node2D = null
+var _loading_status_label: Label  = null
+
+var _queue_buttons: Array = []       # Array[Button], кнопка "В чергу" per track
+var _wagon_queue: WagonQueue = null
 
 func _ready() -> void:
 	_track_wagons.resize(Layout.TRACK_COUNT)
 	_track_reserved.resize(Layout.TRACK_COUNT)
 	_submit_buttons.resize(Layout.TRACK_COUNT)
+	_queue_buttons.resize(Layout.TRACK_COUNT)
 	for i in Layout.TRACK_COUNT:
 		_track_wagons[i] = []
 		_track_reserved[i] = 0
 		_submit_buttons[i] = null
+		_queue_buttons[i] = null
 	_create_entry_buttons()
 	_create_exit_buttons()
 	_create_choice_containers()
 	_create_repair_depot_roof()
+	_create_status_boxes()
+
+func _create_status_boxes() -> void:
+	var r := _make_status_box(Vector2(
+		Layout.REPAIR_DEPOT_RECT.position.x + 5,
+		Layout.REPAIR_DEPOT_RECT.position.y - 54))
+	_repair_status_box   = r[0]
+	_repair_status_label = r[1]
+
+	# Статус-бокс завантаження: лівіше рейки виїзду, центр = центру головного таймера (y=47)
+	const LOADING_BOX_W := 160.0
+	# Вертикальна частина дуги виїзду стоїть на exit_rail_x + QUEUE_ARC_R
+	var rail_vertical_x := Layout.get_exit_rail_x(Layout.CARGO_TRACK) + Layout.QUEUE_ARC_R
+	var loading_x := rail_vertical_x - LOADING_BOX_W - 18.0
+	var l := _make_status_box(Vector2(loading_x, 25.0), LOADING_BOX_W)
+	_loading_status_box   = l[0]
+	_loading_status_label = l[1]
+
+func _make_status_box(pos: Vector2, width: float = 130.0) -> Array:
+	var W := width
+	const H := 44.0
+	var box := Node2D.new()
+	box.position = pos
+	box.visible  = false
+	box.z_index  = 2
+	box.connect("draw", func():
+		box.draw_rect(Rect2(0, 0, W, H),         Color(0.06, 0.09, 0.15, 0.96))
+		box.draw_rect(Rect2(0, 0, W, H),         Color(0.30, 0.45, 0.65, 0.80), false, 2.0)
+		box.draw_rect(Rect2(2, 2, W - 4, H - 4), Color(0.50, 0.65, 0.85, 0.10), false, 1.0)
+	)
+	var lbl := Label.new()
+	lbl.position = Vector2(10, 10)
+	lbl.size = Vector2(W - 20, H - 10)  # правий відступ щоб текст не впирався в край
+	lbl.add_theme_font_size_override("font_size", 18)
+	lbl.add_theme_color_override("font_color", Color(0.80, 0.88, 1.00, 0.95))
+	box.add_child(lbl)
+	add_child(box)
+	return [box, lbl]
 
 func _create_repair_depot_roof() -> void:
 	var roof := Node2D.new()
-	roof.z_index = 1  # один рівень над рейками/вагонами що на z=0
+	roof.z_index = 1
 	roof.connect("draw", func():
 		roof.draw_rect(Layout.REPAIR_DEPOT_RECT, Color(0.9, 0.2, 0.2, 1.0), true)
 		roof.draw_rect(Layout.REPAIR_DEPOT_RECT, Color(0.7, 0.1, 0.1, 1.0), false, 2.0)
 	)
 	add_child(roof)
+
 
 # Розраховує (start_x, end_x) рейок для колії відносно центральної (найдовшої).
 # Коротші колії симетрично зміщені всередину, формуючи шестикутник.
@@ -62,7 +122,7 @@ func reserve_slot(track_index: int) -> int:
 func place_wagon(wagon: Wagon, track_index: int, slot: int) -> void:
 	_track_wagons[track_index - 1].append(wagon)
 	# Передаємо track_index для правильного зміщення
-	wagon.position = Vector2(Layout.get_slot_x(track_index, slot), get_track_y(track_index))
+	wagon.position = Vector2(Layout.get_slot_x(track_index, slot), Layout.get_track_y(track_index))
 	_refresh_exit_button(track_index)
 
 func pop_all_wagons(track_index: int) -> Array:
@@ -80,8 +140,111 @@ func is_track_full(track_index: int) -> bool:
 func get_wagon_count(track_index: int) -> int:
 	return _track_wagons[track_index - 1].size()
 
-func get_track_y(track_index: int) -> float:
-	return Layout.get_track_y(track_index)
+# --- Ремонтне депо ---
+
+func start_repair(wagons: Array) -> void:
+	_repair_wagons = wagons
+	_repair_timer  = REPAIR_TIME
+	_repair_btn    = null
+	_repair_status_box.visible = true
+	_refresh_exit_button(Layout.REPAIR_TRACK)
+
+func _process(delta: float) -> void:
+	if _repair_timer > 0.0:
+		_repair_timer = maxf(0.0, _repair_timer - delta)
+		_repair_status_label.text = "Ремонт: %dс" % ceili(_repair_timer)
+		if _repair_timer == 0.0 and _repair_btn == null:
+			_repair_status_box.visible = false
+			_create_repair_release_btn()
+
+	if _loading_timer > 0.0:
+		_loading_timer = maxf(0.0, _loading_timer - delta)
+		_loading_status_label.text = "Обробка: %dс" % ceili(_loading_timer)
+		if _loading_timer == 0.0 and _loading_btn == null:
+			_loading_status_box.visible = false
+			_create_loading_release_btn()
+
+	if _wagon_queue != null:
+		if _repair_btn != null:
+			_repair_btn.disabled = not _wagon_queue.has_capacity_for(_repair_wagons.size())
+		if _loading_btn != null:
+			_loading_btn.disabled = not _wagon_queue.has_capacity_for(_loading_wagons.size())
+		for i in range(1, Layout.TRACK_COUNT + 1):
+			var btn_q: Button = _queue_buttons[i - 1]
+			if btn_q != null and _choice_containers[i - 1].visible:
+				btn_q.disabled = not _wagon_queue.has_capacity_for(get_wagon_count(i))
+
+func _create_repair_release_btn() -> void:
+	var btn := Button.new()
+	btn.text = "Вивід"
+	btn.custom_minimum_size = Vector2(130, 44)
+	btn.position = Vector2(
+		Layout.REPAIR_DEPOT_RECT.position.x + 5,
+		Layout.REPAIR_DEPOT_RECT.position.y - 54
+	)
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.1, 0.45, 0.15)
+	s.set_corner_radius_all(8)
+	s.set_border_width_all(2)
+	s.border_color = Color(0.3, 0.8, 0.4)
+	btn.add_theme_stylebox_override("normal", s)
+	var sh := s.duplicate()
+	sh.bg_color = Color(0.15, 0.65, 0.2)
+	btn.add_theme_stylebox_override("hover", sh)
+	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_font_size_override("font_size", 18)
+	_repair_btn = btn
+	btn.pressed.connect(_on_repair_release)
+	add_child(btn)
+
+func _on_repair_release() -> void:
+	_repair_btn.queue_free()
+	_repair_btn = null
+	var wagons := _repair_wagons
+	_repair_wagons = []
+	repair_completed.emit(wagons)
+	_refresh_exit_button(Layout.REPAIR_TRACK)
+
+# --- Вантажне депо ---
+
+func start_loading(wagons: Array) -> void:
+	_loading_wagons = wagons
+	_loading_timer  = LOADING_TIME
+	_loading_btn    = null
+	_loading_status_box.visible = true
+	_refresh_exit_button(Layout.CARGO_TRACK)
+
+func _create_loading_release_btn() -> void:
+	const BTN_W := 160.0
+	var btn := Button.new()
+	btn.text = "Вивід"
+	btn.custom_minimum_size = Vector2(BTN_W, 44)
+	btn.position = Vector2(
+		Layout.get_exit_rail_x(Layout.CARGO_TRACK) + Layout.QUEUE_ARC_R - BTN_W - 18.0,
+		25.0
+	)
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.1, 0.45, 0.15)
+	s.set_corner_radius_all(8)
+	s.set_border_width_all(2)
+	s.border_color = Color(0.3, 0.8, 0.4)
+	btn.add_theme_stylebox_override("normal", s)
+	var sh := s.duplicate()
+	sh.bg_color = Color(0.15, 0.65, 0.2)
+	btn.add_theme_stylebox_override("hover", sh)
+	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_font_size_override("font_size", 18)
+	_loading_btn = btn
+	btn.pressed.connect(_on_loading_release)
+	add_child(btn)
+
+func _on_loading_release() -> void:
+	_loading_btn.queue_free()
+	_loading_btn = null
+	var wagons := _loading_wagons
+	_loading_wagons = []
+	loading_completed.emit(wagons)
+	_refresh_exit_button(Layout.CARGO_TRACK)
 
 # --- Малювання ---
 
@@ -203,6 +366,7 @@ func _draw_junction_line() -> void:
 		)
 
 
+
 func _draw_curved_rail(pts: PackedVector2Array, color: Color) -> void:
 	if pts.size() < 2:
 		return
@@ -281,14 +445,22 @@ func _draw_exit_rails() -> void:
 	var arc1_end := arc1[arc1.size() - 1]
 	_draw_rail_segment(arc1_end, Vector2(arc1_end.x, 0.0), rail_color)
 
-	# 3.5. Пряма гілка від колії 7 до ремонтного депо
-	var track7_y := Layout.get_track_y(7)
-	var fork_x   := Layout.get_exit_rail_x(7)
+	# 3.4b. Повернення з навантаження: паралельна вертикаль вниз + дуга до черги
+	var ret_x   := Layout.get_loading_return_x()
+	var ret_arc := Layout.get_loading_return_arc()
+	_draw_rail_segment(Vector2(ret_x, 0.0), ret_arc[0], rail_color)
+	_draw_curved_rail(ret_arc, rail_color)
+
+	# 3.5. Рейки колії 7: від збірної рейки через ліву стінку депо до центру депо
+	var track7_y := Layout.get_track_y(Layout.REPAIR_TRACK)
+	var fork_x   := Layout.get_exit_rail_x(Layout.REPAIR_TRACK)
 	_draw_rail_segment(
 		Vector2(fork_x, track7_y),
-		Vector2(Layout.REPAIR_DEPOT_RECT.position.x, track7_y),
+		Vector2(Layout.REPAIR_DEPOT_RECT.get_center().x, track7_y),
 		rail_color
 	)
+	# 3.5b. Дуга виходу з депо → вниз → черга
+	_draw_curved_rail(Layout.get_repair_exit_arc(), rail_color)
 
 	# 3.6. Пряма здачі завдань: від центру (колія 4) вправо за екран
 	var center4 := Layout.get_exit_center_point()
@@ -362,18 +534,19 @@ func _create_exit_buttons() -> void:
 		btn.custom_minimum_size = Vector2(52, 52)
 		# Зміщуємо кнопку паралельно межі шестикутника
 		btn.position = Vector2(bounds.y + 40, y - 26)
-		btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.1, 0.45, 0.15, 0.9)))
-		btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.2, 0.7, 0.25)))
-		btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.05, 0.3, 0.1)))
 		btn.add_theme_color_override("font_color", Color.WHITE)
 		btn.disabled = true
 		var idx := i
 		btn.pressed.connect(func(): _on_exit_pressed(idx))
 		add_child(btn)
 		_exit_buttons.append(btn)
+		_set_exit_btn_green(i)
 
 func set_task_manager(tm: TaskManager) -> void:
 	_task_manager = tm
+
+func set_wagon_queue(q: WagonQueue) -> void:
+	_wagon_queue = q
 
 func refresh_all_exit_buttons() -> void:
 	for i in range(1, Layout.TRACK_COUNT + 1):
@@ -385,17 +558,22 @@ func set_loco_available(available: bool) -> void:
 		_refresh_exit_button(i)
 
 func _refresh_exit_button(track_index: int) -> void:
-	# Якщо меню зараз відкрите (кнопка червона), ігноруємо оновлення стану, 
-	# щоб гравець завжди міг закрити меню.
+	# Якщо меню зараз відкрите — оновлюємо кнопку "Здати" під актуальний склад колії,
+	# але не чіпаємо саму кнопку-стрілку (щоб гравець міг закрити меню).
 	if _choice_containers[track_index - 1].visible:
+		var btn_s: Button = _submit_buttons[track_index - 1]
+		if btn_s != null and _task_manager != null:
+			btn_s.disabled = not _task_manager.can_submit(_track_wagons[track_index - 1])
 		return
 		
 	var parked: int = get_wagon_count(track_index)
 	var in_transit: bool = _track_reserved[track_index - 1] > parked
-	_exit_buttons[track_index - 1].disabled = parked == 0 or in_transit or not _loco_available
+	var repair_busy:  bool = track_index == Layout.REPAIR_TRACK  and not _repair_wagons.is_empty()
+	var loading_busy: bool = track_index == Layout.CARGO_TRACK   and not _loading_wagons.is_empty()
+	_exit_buttons[track_index - 1].disabled = parked == 0 or in_transit or not _loco_available or repair_busy or loading_busy
 
 func _on_exit_pressed(track_index: int) -> void:
-	if track_index == 1 or track_index == 7:
+	if track_index == Layout.CARGO_TRACK or track_index == Layout.REPAIR_TRACK:
 		track_exit_tapped.emit(track_index)
 	else:
 		# Перевіряємо, чи вже відкрите меню для цієї колії
@@ -413,7 +591,7 @@ func _create_choice_containers() -> void:
 		add_child(container)
 		_choice_containers.append(container)
 
-		if i == 1 or i == 7:
+		if i == Layout.CARGO_TRACK or i == Layout.REPAIR_TRACK:
 			continue
 
 		var y := Layout.get_track_y(i)
@@ -428,6 +606,7 @@ func _create_choice_containers() -> void:
 		var btn_q := _make_choice_btn("В чергу", Color(0.45, 0.28, 0.08))
 		btn_q.position = Vector2(bx, y + 14)
 		container.add_child(btn_q)
+		_queue_buttons[i - 1] = btn_q
 
 		var idx := i
 		btn_s.pressed.connect(func(): _on_choice(idx, true))
@@ -436,24 +615,12 @@ func _create_choice_containers() -> void:
 
 func _hide_choice(track_index: int) -> void:
 	_choice_containers[track_index - 1].visible = false
-	
-	# --- ПОВЕРТАЄМО ЗЕЛЕНИЙ КОЛІР ---
-	var btn: Button = _exit_buttons[track_index - 1]
-	btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.1, 0.45, 0.15, 0.9)))
-	btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.2, 0.7, 0.25)))
-	btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.05, 0.3, 0.1)))
-	
-	# Оновлюємо її стан (блокуємо, якщо вагонів немає)
+	_set_exit_btn_green(track_index)
 	_refresh_exit_button(track_index)
 
 func _show_choice(track_index: int) -> void:
 	_choice_containers[track_index - 1].visible = true
-	
-	# --- РОБИМО КНОПКУ ЧЕРВОНОЮ ---
-	var btn: Button = _exit_buttons[track_index - 1]
-	btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.8, 0.2, 0.2, 0.9)))
-	btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.9, 0.3, 0.3)))
-	btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.6, 0.1, 0.1)))
+	_set_exit_btn_red(track_index)
 	
 	# "Здати ✓" доступна тільки якщо вагони точно закривають одне завдання
 	var btn_s: Button = _submit_buttons[track_index - 1]
@@ -480,6 +647,18 @@ func _make_choice_btn(label: String, color: Color) -> Button:
 	btn.add_theme_color_override("font_color", Color.WHITE)
 	btn.add_theme_font_size_override("font_size", 20)
 	return btn
+
+func _set_exit_btn_green(track_index: int) -> void:
+	var btn: Button = _exit_buttons[track_index - 1]
+	btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.1, 0.45, 0.15, 0.9)))
+	btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.2, 0.7, 0.25)))
+	btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.05, 0.3, 0.1)))
+
+func _set_exit_btn_red(track_index: int) -> void:
+	var btn: Button = _exit_buttons[track_index - 1]
+	btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.8, 0.2, 0.2, 0.9)))
+	btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.9, 0.3, 0.3)))
+	btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.6, 0.1, 0.1)))
 
 func _make_circle_style(color: Color) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()

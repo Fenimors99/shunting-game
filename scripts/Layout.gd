@@ -16,14 +16,18 @@ const STATION_RIGHT := 1280.0
 const TRACK_TOP     := 305.0
 const TRACK_SPACING := 90.0
 const TRACK_COUNT   := 7
+const CARGO_TRACK   := 1
+const REPAIR_TRACK  := 7
 
 const SPEED := 440.0
 
 # Відстань між центрами вагонів
 const WAGON_GAP := 110.0
 
-# Скільки вагонів видно знизу одразу
+# Скільки вагонів видно знизу одразу (початковий спавн)
 const QUEUE_VISIBLE_LIMIT := 8
+# Максимальна місткість черги (понад цього — блокуємо повернення)
+const QUEUE_MAX_CAPACITY := 16
 
 # X де горизонтальна черга закінчується і починається L-поворот
 const QUEUE_STOP_X := 200.0
@@ -34,9 +38,6 @@ const QUEUE_ARC_R  := 100.0
 const EXIT_RAIL_X  := SCREEN_W - DIST_RAIL_X   # 1470
 # X вертикального сегменту правого L-повороту (дзеркало QUEUE_STOP_X)
 const EXIT_STOP_X  := SCREEN_W - QUEUE_STOP_X  # 1720
-
-# Раз на скільки секунд випускається новий вагон із-за екрана
-const QUEUE_SPAWN_INTERVAL := 1.0
 
 # Початкова X-позиція першого вагона
 const QUEUE_START_X := 1200.0
@@ -201,8 +202,43 @@ static func get_track_path_from_center(track_index: int, slot: int) -> PackedVec
 	return pts
 
 
-const LOCO_DEPOT_RECT   := Rect2(1310.0, 800.0, 180.0, 75.0)
-const REPAIR_DEPOT_RECT := Rect2(1480.0, 808.0, 150.0, 74.0)  # будівля ремонту, колія 7
+const LOCO_DEPOT_RECT    := Rect2(1310.0, 800.0, 180.0, 75.0)
+const REPAIR_DEPOT_RECT  := Rect2(1480.0, 808.0, 150.0, 74.0)  # будівля ремонту, колія 7
+const LOADING_DEPOT_RECT := Rect2(1415.0, 100.0, 130.0, 55.0)  # зона навантаження, біля виходу колії 1
+
+# Зміщення рейки повернення з навантаження відносно рейки в'їзду
+const LOADING_RETURN_OFFSET := 100.0
+
+# Вихідна дуга ремонтного депо: вниз → чверть-коло вправо → горизонталь черги.
+# Геометрія: центр = (depot_center_x + R, track7_y), де R = QUEUE_Y - track7_y.
+static func get_repair_exit_arc(steps_per_arc: int = 24) -> PackedVector2Array:
+	var start := Vector2(REPAIR_DEPOT_RECT.get_center().x, get_track_y(REPAIR_TRACK))
+	var R     := QUEUE_Y - start.y  # ≈ 194 px
+	# Центр ЛІВОРУЧ: дуга від 0 до π/2 → старт іде вниз, кінець — ліворуч (напрям черги)
+	var c     := Vector2(start.x - R, start.y)
+	var pts   := PackedVector2Array()
+	for i in range(steps_per_arc + 1):
+		var angle := float(i) / steps_per_arc * PI * 0.5
+		pts.append(c + Vector2(cos(angle), sin(angle)) * R)
+	return pts
+
+# Повернення з вантажного депо: вертикаль вниз → чверть-коло вправо → входить у горизонталь
+# exit_arc між exit_center та першою дугою, тобто кінець = (EXIT_STOP_X - R, track_y(4)).
+# Дуга: центр = (end_x, end_y - R_arc); кут π → π/2; R_arc = LOADING_RETURN_OFFSET.
+static func get_loading_return_arc(steps_per_arc: int = 24) -> PackedVector2Array:
+	var R     := LOADING_RETURN_OFFSET
+	var end_x := EXIT_STOP_X - QUEUE_ARC_R          # 1620
+	var end_y := get_track_y(CENTER_TRACK)           # 575
+	var c     := Vector2(end_x, end_y - R)
+	var pts   := PackedVector2Array()
+	for i in range(steps_per_arc + 1):
+		var angle := PI - float(i) / steps_per_arc * PI * 0.5
+		pts.append(c + Vector2(cos(angle), sin(angle)) * R)
+	return pts
+
+# X-позиція паралельної рейки повернення = (1620 - LOADING_RETURN_OFFSET).
+static func get_loading_return_x() -> float:
+	return EXIT_STOP_X - QUEUE_ARC_R - LOADING_RETURN_OFFSET
 
 static func is_wagon_compatible(wagon_type: Wagon.WagonType, track_index: int) -> bool:
 	match wagon_type:

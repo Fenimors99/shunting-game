@@ -1,7 +1,7 @@
 extends Node2D
 class_name LoginScreen
 
-const GAME_SCENE := "res://scenes/GameScreen.tscn"
+const LEVEL_SELECT_SCENE := "res://scenes/LevelSelect.tscn" # Новий шлях
 
 @onready var firebase: FirebaseBridge = $FirebaseBridge
 
@@ -79,7 +79,7 @@ func _on_signin_pressed() -> void:
 func _on_auth_success(user_info: Dictionary) -> void:
 	_label_status.text = "Вхід виконано: %s" % user_info.get("displayName", "")
 	await get_tree().create_timer(0.8).timeout
-	get_tree().change_scene_to_file(GAME_SCENE)
+	get_tree().change_scene_to_file(LEVEL_SELECT_SCENE)
 
 func _on_auth_failed(error: String) -> void:
 	_btn_signin.disabled = false
