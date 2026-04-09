@@ -208,7 +208,7 @@ const REPAIR_DEPOT_RECT  := Rect2(1480.0, 808.0, 150.0, 74.0)  # будівля 
 const LOADING_DEPOT_RECT := Rect2(1415.0, 100.0, 130.0, 55.0)  # зона навантаження, біля виходу колії 1
 
 # Зміщення рейки повернення з навантаження відносно рейки в'їзду
-const LOADING_RETURN_OFFSET := 60.0
+const LOADING_RETURN_OFFSET := 100.0
 
 # Вихідна дуга ремонтного депо: вниз → чверть-коло вправо → горизонталь черги.
 # Геометрія: центр = (depot_center_x + R, track7_y), де R = QUEUE_Y - track7_y.

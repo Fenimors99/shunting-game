@@ -138,14 +138,35 @@ func is_blocked() -> bool:
 
 func _create_random_wagon() -> Wagon:
 	var w: Wagon = WAGON_SCENE.instantiate()
-	var roll := randi() % 5
-	if roll == 0:
-		w.wagon_type = Wagon.WagonType.BROKEN
-	elif roll == 1:
-		w.wagon_type = Wagon.WagonType.CARGO
+	if LevelConfig.current_level == 0:
+		# Нескінченний режим: Red 7%, White 13%, Blue/Green/Yellow/Purple по 20%
+		var roll := randi() % 100
+		if roll < 7:
+			w.wagon_type = Wagon.WagonType.BROKEN
+		elif roll < 20:
+			w.wagon_type = Wagon.WagonType.CARGO
+		elif roll < 40:
+			w.wagon_type = Wagon.WagonType.NORMAL
+			w.color_id = Wagon.WagonColorId.BLUE
+		elif roll < 60:
+			w.wagon_type = Wagon.WagonType.NORMAL
+			w.color_id = Wagon.WagonColorId.GREEN
+		elif roll < 80:
+			w.wagon_type = Wagon.WagonType.NORMAL
+			w.color_id = Wagon.WagonColorId.YELLOW
+		else:
+			w.wagon_type = Wagon.WagonType.NORMAL
+			w.color_id = Wagon.WagonColorId.PURPLE
 	else:
-		w.wagon_type = Wagon.WagonType.NORMAL
-		w.color_id = randi() % Wagon.WagonColorId.size() as Wagon.WagonColorId
+		# Статичні рівні: оригінальна логіка спавну
+		var roll := randi() % 5
+		if roll == 0:
+			w.wagon_type = Wagon.WagonType.BROKEN
+		elif roll == 1:
+			w.wagon_type = Wagon.WagonType.CARGO
+		else:
+			w.wagon_type = Wagon.WagonType.NORMAL
+			w.color_id = randi() % Wagon.WagonColorId.size() as Wagon.WagonColorId
 	w.rotation = PI
 	return w
 

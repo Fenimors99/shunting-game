@@ -16,8 +16,14 @@ var _time_elapsed: float = 0.0
 
 var _pause_btn: Button
 var _pause_overlay: Panel
-
 var _pause_black_bg: ColorRect
+
+# --- Бали (тільки нескінченний режим) ---
+const SLOT_BASE_SCORES := [10, 20, 30, 50, 100]
+var _total_score: int  = 0
+var _streak:      int  = 0   # кількість здач підряд без повернення в чергу
+var _score_label:  Label = null
+var _streak_label: Label = null
 
 const WAGON_ANIM_DELAY        := 0.18
 const WAGON_RETURN_DELAY      := Layout.WAGON_GAP / Layout.SPEED  # ~0.25 — фізична відстань між вагонами
@@ -33,11 +39,6 @@ func _ready() -> void:
 	station.track_exit_choice.connect(_on_track_exit_choice)
 	loco_depot.availability_changed.connect(station.set_loco_available)
 	station.set_task_manager(task_manager)
-	var vp := get_viewport_rect().size
-	task_toggle_button.position = Vector2(
-		vp.x - TaskPanel.TOGGLE_W,
-		(vp.y - TaskPanel.TOGGLE_H) / 2.0
-	)
 	task_panel.init(task_manager, task_toggle_button)
 	task_manager.task_completed.connect(func(_i): station.refresh_all_exit_buttons())
 	task_manager.all_tasks_completed.connect(_on_all_tasks_completed)
@@ -46,8 +47,11 @@ func _ready() -> void:
 	_create_start_button()
 	
 func _on_all_tasks_completed() -> void:
+	# В нескінченному режимі завдань завжди є — сигнал не емітується,
+	# але захист на випадок майбутніх змін
+	if LevelConfig.current_level == 0:
+		return
 	_timer_running = false
-	# Чекаємо поки вагони відʼїдуть, потім fade-to-black → victory
 	var tween := create_tween()
 	tween.tween_interval(VICTORY_WAIT_TIME)
 	tween.tween_callback(_start_victory_transition)
@@ -105,15 +109,23 @@ func _create_start_button() -> void:
 
 	btn.pressed.connect(_on_start_pressed.bind(btn))
 	add_child(btn)
-	_create_timer_label() # Додаємо цей рядок
-	_create_pause_ui() # Додаємо сюди
+	_create_timer_label()
+	_create_pause_ui()
+	if LevelConfig.current_level == 0:
+		_create_score_display()
 	
 func _create_timer_label() -> void:
-	var W := 210.0
-	var H := 62.0
+	const W := 210.0
+	const H := 62.0
+	const PAUSE_SIZE := 62.0
+	const GAP := 10.0
+	var vp := get_viewport_rect().size
+	# Центруємо таймер + кнопку паузи разом
+	var total_w := W + GAP + PAUSE_SIZE
+	var start_x := (vp.x - total_w) / 2.0
 	var box := Node2D.new()
 	box.z_index = 1
-	box.position = Vector2(16, 16)
+	box.position = Vector2(start_x, 16)
 	box.connect("draw", func():
 		box.draw_rect(Rect2(0, 0, W, H), Color(0.06, 0.09, 0.15, 0.96))
 		box.draw_rect(Rect2(0, 0, W, H), Color(0.30, 0.45, 0.65, 0.8), false, 2.0)
@@ -142,10 +154,15 @@ func _create_pause_ui() -> void:
 	_create_pause_overlay()
 
 func _create_pause_button() -> void:
-	const SIZE_PX := 62.0
+	const SIZE_PX    := 62.0
+	const TIMER_W    := 210.0
+	const GAP        := 10.0
+	const TOTAL_W    := TIMER_W + GAP + SIZE_PX
+	var vp := get_viewport_rect().size
+	var start_x := (vp.x - TOTAL_W) / 2.0
 	_pause_btn = Button.new()
 	_pause_btn.custom_minimum_size = Vector2(SIZE_PX, SIZE_PX)
-	_pause_btn.position = Vector2(16 + 210 + 10, 16)
+	_pause_btn.position = Vector2(start_x + TIMER_W + GAP, 16)
 	_pause_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	_pause_btn.flat = true
 	_pause_btn.visible = false
@@ -167,6 +184,74 @@ func _create_pause_button() -> void:
 	)
 	_pause_btn.pressed.connect(_on_pause_toggle)
 	add_child(_pause_btn)
+
+func _create_score_display() -> void:
+	const W      := 230.0
+	const H      := 62.0
+	const MARGIN := 16.0
+	var vp := get_viewport_rect().size
+
+	var box := Node2D.new()
+	box.z_index = 1
+	box.position = Vector2(vp.x - W - MARGIN, 16)
+	box.connect("draw", func():
+		box.draw_rect(Rect2(0, 0, W, H), Color(0.06, 0.09, 0.15, 0.96))
+		box.draw_rect(Rect2(0, 0, W, H), Color(0.30, 0.45, 0.65, 0.8), false, 2.0)
+		box.draw_rect(Rect2(2, 2, W - 4, H - 4), Color(0.50, 0.65, 0.85, 0.10), false, 1.0)
+	)
+
+	# Стрік — зліва, маленький
+	_streak_label = Label.new()
+	_streak_label.position = Vector2(10, 8)
+	_streak_label.add_theme_font_size_override("font_size", 15)
+	_streak_label.text = ""
+	box.add_child(_streak_label)
+
+	# Бали — під стріком, більший шрифт
+	_score_label = Label.new()
+	_score_label.position = Vector2(10, 30)
+	_score_label.add_theme_font_size_override("font_size", 22)
+	_score_label.add_theme_color_override("font_color", Color(0.98, 0.88, 0.30, 0.95))
+	_score_label.text = "Бали: 0"
+	box.add_child(_score_label)
+	box.add_child(_streak_label)
+
+	add_child(box)
+
+func _update_score_display() -> void:
+	if _score_label == null:
+		return
+	_score_label.text = "Бали: %d" % _total_score
+	if _streak >= 3:
+		_streak_label.text = "Серія ×2.0  🔥"
+		_streak_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.15, 0.95))
+	elif _streak == 2:
+		_streak_label.text = "Серія ×1.5"
+		_streak_label.add_theme_color_override("font_color", Color(1.0, 0.65, 0.15, 0.95))
+	else:
+		_streak_label.text = ""
+
+func _score_submit(task_idx: int, wagons: Array) -> void:
+	if LevelConfig.current_level != 0:
+		return
+	# Базові очки слоту
+	var base: int = SLOT_BASE_SCORES[task_idx] if task_idx < SLOT_BASE_SCORES.size() else 10
+	# Бонус за рожеві вагони (+10% за кожен)
+	var pink_count := 0
+	for w in wagons:
+		if w.wagon_type == Wagon.WagonType.NORMAL and int(w.color_id) == 4:
+			pink_count += 1
+	var after_pink: float = base * (1.0 + pink_count * 0.1)
+	# Стрік: спочатку рахуємо здачу, потім застосовуємо множник
+	_streak += 1
+	var streak_mult := 1.0
+	if _streak == 2:
+		streak_mult = 1.5
+	elif _streak >= 3:
+		streak_mult = 2.0
+	var points := int(round(after_pink * streak_mult))
+	_total_score += points
+	_update_score_display()
 
 func _create_pause_overlay() -> void:
 	var vp := get_viewport_rect().size
@@ -320,12 +405,18 @@ func _on_track_exit_choice(track_index: int, submit: bool) -> void:
 		return
 	var wagons: Array = station.pop_all_wagons(track_index)
 	if submit:
-		if task_manager.submit(wagons) == -1:
+		var task_idx := task_manager.submit(wagons)
+		if task_idx == -1:
 			# Склад колії змінився поки меню було відкрите — повертаємо вагони
 			_return_to_queue(wagons, track_index)
 			return
+		_score_submit(task_idx, wagons)
 		_animate_submit(wagons, track_index)
 	else:
+		# Свідоме повернення в чергу — скидаємо стрік
+		if LevelConfig.current_level == 0 and _streak > 0:
+			_streak = 0
+			_update_score_display()
 		_return_to_queue(wagons, track_index)
 
 # Шлях від слоту на колії до центральної збірної рейки (спільна частина для exit/submit/queue).

@@ -83,6 +83,5 @@ func _create_level_button(txt: String, level_id: int, base_color: Color) -> Butt
 	return btn
 
 func _on_level_selected(level_num: int) -> void:
-	print("Обрано рівень: ", level_num)
-	# Тут можна передати номер рівня в GameScreen перед зміною сцени
+	LevelConfig.current_level = level_num
 	get_tree().change_scene_to_file(GAME_SCENE)

@@ -59,14 +59,17 @@ func _create_status_boxes() -> void:
 	_repair_status_box   = r[0]
 	_repair_status_label = r[1]
 
-	var l := _make_status_box(Vector2(
-		Layout.LOADING_DEPOT_RECT.position.x + 5,
-		Layout.LOADING_DEPOT_RECT.position.y - 54))
+	# Статус-бокс завантаження: лівіше рейки виїзду, центр = центру головного таймера (y=47)
+	const LOADING_BOX_W := 160.0
+	# Вертикальна частина дуги виїзду стоїть на exit_rail_x + QUEUE_ARC_R
+	var rail_vertical_x := Layout.get_exit_rail_x(Layout.CARGO_TRACK) + Layout.QUEUE_ARC_R
+	var loading_x := rail_vertical_x - LOADING_BOX_W - 18.0
+	var l := _make_status_box(Vector2(loading_x, 25.0), LOADING_BOX_W)
 	_loading_status_box   = l[0]
 	_loading_status_label = l[1]
 
-func _make_status_box(pos: Vector2) -> Array:
-	const W := 130.0
+func _make_status_box(pos: Vector2, width: float = 130.0) -> Array:
+	var W := width
 	const H := 44.0
 	var box := Node2D.new()
 	box.position = pos
@@ -79,6 +82,7 @@ func _make_status_box(pos: Vector2) -> Array:
 	)
 	var lbl := Label.new()
 	lbl.position = Vector2(10, 10)
+	lbl.size = Vector2(W - 20, H - 10)  # правий відступ щоб текст не впирався в край
 	lbl.add_theme_font_size_override("font_size", 18)
 	lbl.add_theme_color_override("font_color", Color(0.80, 0.88, 1.00, 0.95))
 	box.add_child(lbl)
@@ -196,12 +200,13 @@ func start_loading(wagons: Array) -> void:
 	_refresh_exit_button(Layout.CARGO_TRACK)
 
 func _create_loading_release_btn() -> void:
+	const BTN_W := 160.0
 	var btn := Button.new()
 	btn.text = "Вивід"
-	btn.custom_minimum_size = Vector2(130, 44)
+	btn.custom_minimum_size = Vector2(BTN_W, 44)
 	btn.position = Vector2(
-		Layout.LOADING_DEPOT_RECT.position.x + 5,
-		Layout.LOADING_DEPOT_RECT.position.y - 54
+		Layout.get_exit_rail_x(Layout.CARGO_TRACK) + Layout.QUEUE_ARC_R - BTN_W - 18.0,
+		25.0
 	)
 	var s := StyleBoxFlat.new()
 	s.bg_color = Color(0.1, 0.45, 0.15)
