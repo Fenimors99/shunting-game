@@ -1,7 +1,7 @@
 extends Node2D
 
 @onready var queue:              WagonQueue  = $Queue
-@onready var station:            Node2D      = $Station
+@onready var station:            Station     = $Station
 @onready var loco_depot:         LocoDepot   = $LocoDepot
 @onready var task_manager:       TaskManager = $TaskManager
 @onready var task_panel:         TaskPanel   = $TaskPanel
@@ -19,7 +19,8 @@ var _pause_overlay: Panel
 
 var _pause_black_bg: ColorRect
 
-const WAGON_ANIM_DELAY  := 0.18
+const WAGON_ANIM_DELAY        := 0.18
+const WAGON_RETURN_DELAY      := Layout.WAGON_GAP / Layout.SPEED  # ~0.25 — фізична відстань між вагонами
 const VICTORY_WAIT_TIME := 2.2
 const FADE_DURATION     := 0.8
 
@@ -40,6 +41,8 @@ func _ready() -> void:
 	task_panel.init(task_manager, task_toggle_button)
 	task_manager.task_completed.connect(func(_i): station.refresh_all_exit_buttons())
 	task_manager.all_tasks_completed.connect(_on_all_tasks_completed)
+	station.repair_completed.connect(_on_repair_completed)
+	station.loading_completed.connect(_on_loading_completed)
 	_create_start_button()
 	
 func _on_all_tasks_completed() -> void:
@@ -382,7 +385,11 @@ func _animate_to_loading(wagons: Array) -> void:
 		pts.append(wagon.position)
 		pts.append_array(arc)
 		pts.append(Vector2(arc_end.x, -Layout.WAGON_GAP))
-		_animate_delayed(wagon, pts, i * WAGON_ANIM_DELAY, wagon.queue_free)
+		var is_last := (i == wagons.size() - 1)
+		_animate_delayed(wagon, pts, i * WAGON_ANIM_DELAY, func():
+			if is_last:
+				station.start_loading(wagons)
+		)
 
 func _animate_to_repair(wagons: Array) -> void:
 	var dest_x   := Layout.REPAIR_DEPOT_RECT.get_center().x
@@ -390,4 +397,43 @@ func _animate_to_repair(wagons: Array) -> void:
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
 		var pts := PackedVector2Array([wagon.position, Vector2(dest_x, track7_y)])
-		_animate_delayed(wagon, pts, i * WAGON_ANIM_DELAY, wagon.queue_free)
+		var is_last := (i == wagons.size() - 1)
+		_animate_delayed(wagon, pts, i * WAGON_ANIM_DELAY, func():
+			wagon.rotation = 0.0
+			if is_last:
+				station.start_repair(wagons)
+		)
+
+func _on_loading_completed(wagons: Array) -> void:
+	var ret_x       := Layout.get_loading_return_x()
+	var ret_arc     := Layout.get_loading_return_arc()
+	var exit_arc    := Layout.get_exit_arc()
+	var base_tail_x := queue.get_tail_x() + Layout.WAGON_GAP
+	for i in wagons.size():
+		var wagon: Wagon = wagons[i]
+		wagon.become_loaded()
+		wagon.position = Vector2(ret_x, -Layout.WAGON_GAP)
+		var pts := PackedVector2Array()
+		pts.append(wagon.position)
+		pts.append_array(ret_arc)                    # → (1620, 575) вправо
+		pts.append_array(exit_arc.slice(2))          # крок 3+: дуга→вертикаль→дуга→QUEUE_Y
+		pts.append(Vector2(base_tail_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y))
+		_animate_delayed(wagon, pts, i * WAGON_RETURN_DELAY, func():
+			wagon.rotation = PI
+			queue.receive_wagon(wagon)
+		)
+
+func _on_repair_completed(wagons: Array) -> void:
+	var arc         := Layout.get_repair_exit_arc()
+	var base_tail_x := queue.get_tail_x() + Layout.WAGON_GAP
+	for i in wagons.size():
+		var wagon: Wagon = wagons[i]
+		wagon.repair()
+		var pts := PackedVector2Array()
+		pts.append(wagon.position)
+		pts.append_array(arc)
+		pts.append(Vector2(base_tail_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y))
+		_animate_delayed(wagon, pts, i * WAGON_RETURN_DELAY, func():
+			wagon.rotation = PI
+			queue.receive_wagon(wagon)
+		)

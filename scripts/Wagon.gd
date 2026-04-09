@@ -51,6 +51,15 @@ func _setup_visuals() -> void:
 	_shadow.position = Vector2.ZERO
 	_shadow.modulate = Color(0.9, 0.15, 0.15, 0.85)
 
+func repair() -> void:
+	wagon_type = WagonType.CARGO
+	_refresh()
+
+func become_loaded() -> void:
+	wagon_type = WagonType.NORMAL
+	color_id   = 4  # Pink (NORMAL_COLORS[4])
+	_refresh()
+
 func start_blocking() -> void:
 	state = State.BLOCKED
 	_blink_timer.start()

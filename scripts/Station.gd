@@ -10,6 +10,11 @@ const COLOR_BORDER        := Color(0.3, 0.4, 0.55, 0.5)
 signal track_entry_tapped(track_index: int)
 signal track_exit_tapped(track_index: int)
 signal track_exit_choice(track_index: int, submit: bool)
+signal repair_completed(wagons: Array)
+signal loading_completed(wagons: Array)
+
+const REPAIR_TIME  := 20.0
+const LOADING_TIME := 20.0
 
 var _track_wagons: Array = []      # Array[Array[Wagon]]
 var _track_reserved: Array = []    # int на колію: зарезервовані + припарковані
@@ -21,6 +26,17 @@ var _filter_active: bool = false
 var _filter_type: Wagon.WagonType = Wagon.WagonType.NORMAL
 var _loco_available: bool = true
 var _task_manager: TaskManager = null
+var _repair_wagons:  Array  = []
+var _repair_timer:   float  = 0.0
+var _repair_btn:     Button = null
+var _loading_wagons: Array  = []
+var _loading_timer:  float  = 0.0
+var _loading_btn:    Button = null
+
+var _repair_status_box:    Node2D = null
+var _repair_status_label:  Label  = null
+var _loading_status_box:   Node2D = null
+var _loading_status_label: Label  = null
 
 func _ready() -> void:
 	_track_wagons.resize(Layout.TRACK_COUNT)
@@ -34,15 +50,50 @@ func _ready() -> void:
 	_create_exit_buttons()
 	_create_choice_containers()
 	_create_repair_depot_roof()
+	_create_status_boxes()
+
+func _create_status_boxes() -> void:
+	var r := _make_status_box(Vector2(
+		Layout.REPAIR_DEPOT_RECT.position.x + 5,
+		Layout.REPAIR_DEPOT_RECT.position.y - 54))
+	_repair_status_box   = r[0]
+	_repair_status_label = r[1]
+
+	var l := _make_status_box(Vector2(
+		Layout.LOADING_DEPOT_RECT.position.x + 5,
+		Layout.LOADING_DEPOT_RECT.position.y - 54))
+	_loading_status_box   = l[0]
+	_loading_status_label = l[1]
+
+func _make_status_box(pos: Vector2) -> Array:
+	const W := 130.0
+	const H := 44.0
+	var box := Node2D.new()
+	box.position = pos
+	box.visible  = false
+	box.z_index  = 2
+	box.connect("draw", func():
+		box.draw_rect(Rect2(0, 0, W, H),         Color(0.06, 0.09, 0.15, 0.96))
+		box.draw_rect(Rect2(0, 0, W, H),         Color(0.30, 0.45, 0.65, 0.80), false, 2.0)
+		box.draw_rect(Rect2(2, 2, W - 4, H - 4), Color(0.50, 0.65, 0.85, 0.10), false, 1.0)
+	)
+	var lbl := Label.new()
+	lbl.position = Vector2(10, 10)
+	lbl.add_theme_font_size_override("font_size", 18)
+	lbl.add_theme_color_override("font_color", Color(0.80, 0.88, 1.00, 0.95))
+	box.add_child(lbl)
+	add_child(box)
+	return [box, lbl]
 
 func _create_repair_depot_roof() -> void:
 	var roof := Node2D.new()
-	roof.z_index = 1  # один рівень над рейками/вагонами що на z=0
+	roof.z_index = 1
 	roof.connect("draw", func():
 		roof.draw_rect(Layout.REPAIR_DEPOT_RECT, Color(0.9, 0.2, 0.2, 1.0), true)
 		roof.draw_rect(Layout.REPAIR_DEPOT_RECT, Color(0.7, 0.1, 0.1, 1.0), false, 2.0)
 	)
 	add_child(roof)
+
 
 # Розраховує (start_x, end_x) рейок для колії відносно центральної (найдовшої).
 # Коротші колії симетрично зміщені всередину, формуючи шестикутник.
@@ -79,6 +130,101 @@ func is_track_full(track_index: int) -> bool:
 
 func get_wagon_count(track_index: int) -> int:
 	return _track_wagons[track_index - 1].size()
+
+# --- Ремонтне депо ---
+
+func start_repair(wagons: Array) -> void:
+	_repair_wagons = wagons
+	_repair_timer  = REPAIR_TIME
+	_repair_btn    = null
+	_repair_status_box.visible = true
+	_refresh_exit_button(Layout.REPAIR_TRACK)
+
+func _process(delta: float) -> void:
+	if _repair_timer > 0.0:
+		_repair_timer = maxf(0.0, _repair_timer - delta)
+		_repair_status_label.text = "Ремонт: %dс" % ceili(_repair_timer)
+		if _repair_timer == 0.0 and _repair_btn == null:
+			_repair_status_box.visible = false
+			_create_repair_release_btn()
+
+	if _loading_timer > 0.0:
+		_loading_timer = maxf(0.0, _loading_timer - delta)
+		_loading_status_label.text = "Обробка: %dс" % ceili(_loading_timer)
+		if _loading_timer == 0.0 and _loading_btn == null:
+			_loading_status_box.visible = false
+			_create_loading_release_btn()
+
+func _create_repair_release_btn() -> void:
+	var btn := Button.new()
+	btn.text = "Вивід"
+	btn.custom_minimum_size = Vector2(130, 44)
+	btn.position = Vector2(
+		Layout.REPAIR_DEPOT_RECT.position.x + 5,
+		Layout.REPAIR_DEPOT_RECT.position.y - 54
+	)
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.1, 0.45, 0.15)
+	s.set_corner_radius_all(8)
+	s.set_border_width_all(2)
+	s.border_color = Color(0.3, 0.8, 0.4)
+	btn.add_theme_stylebox_override("normal", s)
+	var sh := s.duplicate()
+	sh.bg_color = Color(0.15, 0.65, 0.2)
+	btn.add_theme_stylebox_override("hover", sh)
+	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_font_size_override("font_size", 18)
+	_repair_btn = btn
+	btn.pressed.connect(_on_repair_release)
+	add_child(btn)
+
+func _on_repair_release() -> void:
+	_repair_btn.queue_free()
+	_repair_btn = null
+	var wagons := _repair_wagons
+	_repair_wagons = []
+	repair_completed.emit(wagons)
+	_refresh_exit_button(Layout.REPAIR_TRACK)
+
+# --- Вантажне депо ---
+
+func start_loading(wagons: Array) -> void:
+	_loading_wagons = wagons
+	_loading_timer  = LOADING_TIME
+	_loading_btn    = null
+	_loading_status_box.visible = true
+	_refresh_exit_button(Layout.CARGO_TRACK)
+
+func _create_loading_release_btn() -> void:
+	var btn := Button.new()
+	btn.text = "Вивід"
+	btn.custom_minimum_size = Vector2(130, 44)
+	btn.position = Vector2(
+		Layout.LOADING_DEPOT_RECT.position.x + 5,
+		Layout.LOADING_DEPOT_RECT.position.y - 54
+	)
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.1, 0.45, 0.15)
+	s.set_corner_radius_all(8)
+	s.set_border_width_all(2)
+	s.border_color = Color(0.3, 0.8, 0.4)
+	btn.add_theme_stylebox_override("normal", s)
+	var sh := s.duplicate()
+	sh.bg_color = Color(0.15, 0.65, 0.2)
+	btn.add_theme_stylebox_override("hover", sh)
+	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_font_size_override("font_size", 18)
+	_loading_btn = btn
+	btn.pressed.connect(_on_loading_release)
+	add_child(btn)
+
+func _on_loading_release() -> void:
+	_loading_btn.queue_free()
+	_loading_btn = null
+	var wagons := _loading_wagons
+	_loading_wagons = []
+	loading_completed.emit(wagons)
+	_refresh_exit_button(Layout.CARGO_TRACK)
 
 # --- Малювання ---
 
@@ -200,6 +346,7 @@ func _draw_junction_line() -> void:
 		)
 
 
+
 func _draw_curved_rail(pts: PackedVector2Array, color: Color) -> void:
 	if pts.size() < 2:
 		return
@@ -278,14 +425,22 @@ func _draw_exit_rails() -> void:
 	var arc1_end := arc1[arc1.size() - 1]
 	_draw_rail_segment(arc1_end, Vector2(arc1_end.x, 0.0), rail_color)
 
-	# 3.5. Пряма гілка від колії 7 до ремонтного депо
-	var track7_y := Layout.get_track_y(7)
-	var fork_x   := Layout.get_exit_rail_x(7)
+	# 3.4b. Повернення з навантаження: паралельна вертикаль вниз + дуга до черги
+	var ret_x   := Layout.get_loading_return_x()
+	var ret_arc := Layout.get_loading_return_arc()
+	_draw_rail_segment(Vector2(ret_x, 0.0), ret_arc[0], rail_color)
+	_draw_curved_rail(ret_arc, rail_color)
+
+	# 3.5. Рейки колії 7: від збірної рейки через ліву стінку депо до центру депо
+	var track7_y := Layout.get_track_y(Layout.REPAIR_TRACK)
+	var fork_x   := Layout.get_exit_rail_x(Layout.REPAIR_TRACK)
 	_draw_rail_segment(
 		Vector2(fork_x, track7_y),
-		Vector2(Layout.REPAIR_DEPOT_RECT.position.x, track7_y),
+		Vector2(Layout.REPAIR_DEPOT_RECT.get_center().x, track7_y),
 		rail_color
 	)
+	# 3.5b. Дуга виходу з депо → вниз → черга
+	_draw_curved_rail(Layout.get_repair_exit_arc(), rail_color)
 
 	# 3.6. Пряма здачі завдань: від центру (колія 4) вправо за екран
 	var center4 := Layout.get_exit_center_point()
@@ -390,7 +545,9 @@ func _refresh_exit_button(track_index: int) -> void:
 		
 	var parked: int = get_wagon_count(track_index)
 	var in_transit: bool = _track_reserved[track_index - 1] > parked
-	_exit_buttons[track_index - 1].disabled = parked == 0 or in_transit or not _loco_available
+	var repair_busy:  bool = track_index == Layout.REPAIR_TRACK  and not _repair_wagons.is_empty()
+	var loading_busy: bool = track_index == Layout.CARGO_TRACK   and not _loading_wagons.is_empty()
+	_exit_buttons[track_index - 1].disabled = parked == 0 or in_transit or not _loco_available or repair_busy or loading_busy
 
 func _on_exit_pressed(track_index: int) -> void:
 	if track_index == Layout.CARGO_TRACK or track_index == Layout.REPAIR_TRACK:
