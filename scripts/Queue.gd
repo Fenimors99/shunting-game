@@ -20,6 +20,24 @@ var _arc_pts: PackedVector2Array
 var _arc_cumul: Array[float]
 var _arc_length: float
 
+var _tutorial_idx: int = 0
+const TUTORIAL_SEQUENCE = [
+	# --- ЗАВДАННЯ 1: 2 синіх, 1 зелений (Просте сортування) ---
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	
+	# --- ЗАВДАННЯ 2: 1 Рожевий (Ремонт + Завантаження) ---
+	# Цей вагон виїде ЧЕРВОНИМ. Гравець має:
+	# 1. Відправити на колію 7 (стане БІЛИМ після ремонту)
+	# 2. Відправити на колію 1 (стане РОЖЕВИМ після завантаження)
+	{"type": Wagon.WagonType.BROKEN, "color": 0}, 
+	
+	# --- ЗАВДАННЯ 3: 1 Рожевий, 1 Жовтий, 1 Синій (Комбіноване) ---
+	{"type": Wagon.WagonType.BROKEN, "color": 0}, # Знову червоний для перетворення в рожевий
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+]
 
 func _ready() -> void:
 	_precompute_arc()
@@ -139,7 +157,28 @@ func is_blocked() -> bool:
 
 func _create_random_wagon() -> Wagon:
 	var w: Wagon = WAGON_SCENE.instantiate()
-	if LevelConfig.current_level == 0:
+	w.rotation = PI
+	
+	if LevelConfig.current_level == 1:
+		# ЛОГІКА НАВЧАЛЬНОГО РІВНЯ
+		if _tutorial_idx < TUTORIAL_SEQUENCE.size():
+			var data = TUTORIAL_SEQUENCE[_tutorial_idx]
+			w.wagon_type = data["type"]
+			if w.wagon_type == Wagon.WagonType.NORMAL:
+				w.color_id = data["color"]
+			_tutorial_idx += 1
+		else:
+			# ЗАПОБІЖНИК: Якщо гравець помилився (відправив вагони не туди), 
+			# і фіксовані вагони закінчилися, даємо йому випадкові, 
+			# щоб він не застряг (не отримав softlock).
+			var roll := randi() % 4
+			if roll == 0:
+				w.wagon_type = Wagon.WagonType.BROKEN
+			else:
+				w.wagon_type = Wagon.WagonType.NORMAL
+				w.color_id = randi() % Wagon.WagonColorId.size() as Wagon.WagonColorId
+				
+	elif LevelConfig.current_level == 0:
 		# Нескінченний режим: Red 7%, White 13%, Blue/Green/Yellow/Purple по 20%
 		var roll := randi() % 100
 		if roll < 7:
@@ -159,7 +198,7 @@ func _create_random_wagon() -> Wagon:
 			w.wagon_type = Wagon.WagonType.NORMAL
 			w.color_id = Wagon.WagonColorId.PURPLE
 	else:
-		# Статичні рівні: оригінальна логіка спавну
+		# Статичні рівні (2, 3 тощо): оригінальна логіка спавну
 		var roll := randi() % 5
 		if roll == 0:
 			w.wagon_type = Wagon.WagonType.BROKEN
@@ -168,7 +207,7 @@ func _create_random_wagon() -> Wagon:
 		else:
 			w.wagon_type = Wagon.WagonType.NORMAL
 			w.color_id = randi() % Wagon.WagonColorId.size() as Wagon.WagonColorId
-	w.rotation = PI
+			
 	return w
 
 

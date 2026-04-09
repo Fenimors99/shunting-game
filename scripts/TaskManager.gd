@@ -7,12 +7,19 @@ signal task_added(index: int)   # тільки для нескінченного
 
 # --- Статичні завдання для рівнів 1–3 ---
 const STATIC_TASKS: Array = [
-	# Рівень 1
+	# Рівень 1 (ОЗНАЙОМЧИЙ)
 	[
-		{ Wagon.WagonColorId.BLUE: 4, Wagon.WagonColorId.GREEN: 1 },
-		{ Wagon.WagonColorId.BLUE: 2, Wagon.WagonColorId.GREEN: 3, Wagon.WagonColorId.YELLOW: 1 },
+		# 1. Просте завдання: вчимося сортувати базові кольори
+		{ Wagon.WagonColorId.BLUE: 2, Wagon.WagonColorId.GREEN: 1 },
+		
+		# 2. Ремонт і завантаження: Гравець має взяти червоний (BROKEN), 
+		# відправити в ремонт (стане CARGO), потім на завантаження (стане рожевим NORMAL)
+		{ 4: 1 }, # 4 - це індекс рожевого кольору у вашому Wagon.gd
+		
+		# 3. Комбіноване завдання для закріплення
+		{ 4: 1, Wagon.WagonColorId.YELLOW: 1, Wagon.WagonColorId.BLUE: 1 },
 	],
-	# Рівень 2
+	# Рівень 2 (залишається як був)
 	[
 		{ Wagon.WagonColorId.GREEN: 3, Wagon.WagonColorId.YELLOW: 2 },
 		{ Wagon.WagonColorId.BLUE: 3, Wagon.WagonColorId.PURPLE: 2 },
