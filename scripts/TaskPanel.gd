@@ -1,129 +1,165 @@
 extends Node2D
 class_name TaskPanel
 
-const PANEL_W  := 260.0
-const PANEL_H  := 320.0
-const TOGGLE_W := 32.0
+const PANEL_W := 400.0
+const TOGGLE_W := 32.0   # залишено для сумісності з GameScreen
 const TOGGLE_H := 80.0
 
-var _task_manager: TaskManager
-var _toggle_btn:   Button
-var _open     := true
-var _tweening := false
+# Мітки і кольори складності для нескінченного режиму
+const SLOT_LABELS := ["Найпростіше", "Легко", "Середнє", "Складно", "Неможливо"]
+const SLOT_COLORS := [
+	Color(0.25, 0.88, 0.42),
+	Color(0.20, 0.78, 0.90),
+	Color(0.98, 0.84, 0.18),
+	Color(0.97, 0.52, 0.10),
+	Color(0.92, 0.24, 0.24),
+]
 
-var _pos_open:   float
-var _pos_closed: float
+const FADE_OUT_DURATION := 0.35
+const FADE_IN_DURATION  := 0.35
+
+# Геометрія панелі
+const HEADER_H  := 64.0   # висота шапки
+const CARD_PAD  := 14.0   # відступ зверху і знизу всередині картки
+const FONT_HDR  := 24     # шрифт заголовку панелі
+const FONT_LBL  := 21     # шрифт мітки складності
+const FONT_CNT  := 18     # шрифт кількості вагонів
+const DOT_R     := 11.0   # радіус кружка вагона
+const DOT_STEP  := 68.0   # крок між кружками
+const CARD_GAP  := 8.0    # зазор між картками
+const BAR_W     := 5.0    # ширина кольорової смуги зліва
+
+var _task_manager: TaskManager
+var _task_alphas: Array[float] = []
 
 func _ready() -> void:
-	z_index = 1  # поверх вагонів (z=0)
-	var vp := get_viewport_rect().size
-	_pos_open   = vp.x - PANEL_W
-	_pos_closed = vp.x
-	position.x  = _pos_open
-	position.y  = 0.0  # правий верхній кут
+	z_index = 1
+	position.x = 0.0
+	position.y = 0.0
 
-# Викликається з GameScreen після того як вузли готові.
-# tm    — менеджер завдань
-# btn   — кнопка-тоггл, оголошена в сцені як сиблінг (не дочірній вузол панелі)
 func init(tm: TaskManager, btn: Button) -> void:
 	_task_manager = tm
-	_toggle_btn          = btn
-	_toggle_btn.z_index  = 2  # поверх панелі (z=1)
-	_task_manager.task_completed.connect(func(_i): queue_redraw())
-	_apply_toggle_style()
-	_toggle_btn.position = Vector2(_pos_open - TOGGLE_W, (PANEL_H - TOGGLE_H) / 2.0)
-	_toggle_btn.pressed.connect(_toggle)
+	btn.visible = false   # прибираємо кнопку-стрілку
+
+	_task_alphas.resize(_task_manager.get_task_count())
+	_task_alphas.fill(1.0)
+
+	if LevelConfig.current_level == 0:
+		_task_manager.task_completed.connect(_on_task_completed_infinite)
+		_task_manager.task_added.connect(_on_task_added_infinite)
+	else:
+		_task_manager.task_completed.connect(func(_i): queue_redraw())
+
 	queue_redraw()
+
+# --- Fade-анімації (нескінченний режим) ---
+
+func _on_task_completed_infinite(index: int) -> void:
+	var tween := create_tween()
+	tween.tween_method(func(v: float):
+		_task_alphas[index] = v
+		queue_redraw()
+	, 1.0, 0.0, FADE_OUT_DURATION)
+
+func _on_task_added_infinite(index: int) -> void:
+	var tween := create_tween()
+	tween.tween_method(func(v: float):
+		_task_alphas[index] = v
+		queue_redraw()
+	, 0.0, 1.0, FADE_IN_DURATION)
+
+# --- Малювання ---
+
+func _card_h() -> float:
+	return CARD_PAD + float(FONT_LBL) + 10.0 + DOT_R * 2.0 + CARD_PAD
 
 func _draw() -> void:
 	if _task_manager == null:
 		return
 
-	var font := ThemeDB.fallback_font
+	var font  := ThemeDB.fallback_font
+	var tasks := _task_manager.get_tasks()
+	var n     := tasks.size()
+	var ch    := _card_h()
+
+	# Висота панелі — динамічна
+	var panel_h := HEADER_H + float(n) * ch + float(n + 1) * CARD_GAP
 
 	# Фон панелі
-	draw_rect(Rect2(0, 0, PANEL_W, PANEL_H), Color(0.06, 0.09, 0.15, 0.96))
-	draw_rect(Rect2(0, 0, PANEL_W, PANEL_H), Color(0.30, 0.45, 0.65, 0.8), false, 2.0)
-	draw_rect(Rect2(2, 2, PANEL_W - 4, PANEL_H - 4), Color(0.50, 0.65, 0.85, 0.10), false, 1.0)
+	draw_rect(Rect2(0, 0, PANEL_W, panel_h), Color(0.05, 0.08, 0.13, 0.97))
+	draw_rect(Rect2(0, 0, PANEL_W, panel_h), Color(0.25, 0.38, 0.58, 0.85), false, 2.0)
 
 	# Заголовок
-	draw_string(font, Vector2(14, 26),
+	draw_string(font, Vector2(16, HEADER_H * 0.62),
 		"Сортувальний листок",
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 15,
-		Color(0.80, 0.88, 1.00, 0.95))
-	draw_line(Vector2(10, 34), Vector2(PANEL_W - 10, 34), Color(0.30, 0.45, 0.65, 0.5), 1.0)
+		HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_HDR,
+		Color(0.70, 0.82, 1.00, 0.80))
+	draw_line(Vector2(0, HEADER_H - 1), Vector2(PANEL_W, HEADER_H - 1),
+		Color(0.25, 0.38, 0.58, 0.55), 1.0)
 
-	# Завдання
-	var y := 52.0
-	for i in TaskManager.TASKS.size():
-		var done: bool = _task_manager.is_completed(i)
+	# Картки завдань
+	var y := HEADER_H + CARD_GAP
+	for i in n:
+		var done  : bool  = _task_manager.is_completed(i)
+		var alpha : float = _task_alphas[i] if i < _task_alphas.size() else 1.0
+		var req   : Dictionary = tasks[i]
 
-		var row_color := Color(0.12, 0.22, 0.12, 0.6) if done else Color(0.08, 0.12, 0.20, 0.5)
-		draw_rect(Rect2(8, y - 14, PANEL_W - 16, 18), row_color)
-
-		var box_col := Color(0.20, 0.75, 0.35) if done else Color(0.35, 0.45, 0.60)
-		draw_rect(Rect2(14, y - 11, 13, 13), box_col)
-		draw_rect(Rect2(14, y - 11, 13, 13), Color(0.60, 0.75, 0.90, 0.6), false, 1.0)
+		# Колір складності
+		var diff_col: Color
+		if LevelConfig.current_level == 0:
+			diff_col = SLOT_COLORS[i] if i < SLOT_COLORS.size() else Color.WHITE
+		else:
+			diff_col = Color(0.50, 0.65, 1.00)
 		if done:
-			draw_string(font, Vector2(15, y), "v",
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.05, 0.05, 0.05))
+			diff_col = diff_col.darkened(0.5)
+		diff_col.a = alpha
 
-		var num_col := Color(0.55, 0.75, 0.55) if done else Color(0.70, 0.80, 1.00)
-		draw_string(font, Vector2(34, y),
-			"Завдання %d" % (i + 1),
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, num_col)
+		# Фон картки
+		var bg_col := Color(0.08, 0.16, 0.10, 0.65 * alpha) if done \
+				else Color(0.08, 0.13, 0.24, 0.60 * alpha)
+		draw_rect(Rect2(6, y, PANEL_W - 12, ch), bg_col)
+		# Тонка рамка картки
+		draw_rect(Rect2(6, y, PANEL_W - 12, ch),
+			Color(0.30, 0.45, 0.65, 0.25 * alpha), false, 1.0)
 
-		y += 26.0
+		# Ліва кольорова смуга
+		draw_rect(Rect2(6, y, BAR_W, ch), diff_col)
 
-		var req: Dictionary = TaskManager.TASKS[i]
-		var rx := 28.0
+		# Мітка складності
+		var label: String
+		if LevelConfig.current_level == 0:
+			label = SLOT_LABELS[i] if i < SLOT_LABELS.size() else "Завдання %d" % (i + 1)
+		else:
+			label = "Завдання %d" % (i + 1)
+		var lbl_x := BAR_W + 14.0
+		draw_string(font, Vector2(lbl_x, y + CARD_PAD + FONT_LBL),
+			label, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_LBL, diff_col)
+
+		# Галочка (статичні рівні)
+		if done and LevelConfig.current_level != 0:
+			draw_string(font, Vector2(PANEL_W - 32, y + CARD_PAD + FONT_LBL),
+				"✓", HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_LBL,
+				Color(0.30, 0.92, 0.48, alpha))
+
+		# Кружки вагонів
+		var dots_y := y + CARD_PAD + float(FONT_LBL) + 10.0 + DOT_R
+		var rx := lbl_x
 		for color_id in req:
 			var count: int = req[color_id]
 			var dot_col: Color = Wagon.NORMAL_COLORS[color_id]
 			if done:
-				dot_col = dot_col.darkened(0.4)
-			draw_circle(Vector2(rx + 6, y - 5), 6, dot_col)
-			draw_string(font, Vector2(rx + 16, y),
-				"× %d" % count,
-				HORIZONTAL_ALIGNMENT_LEFT, -1, 13,
-				Color(0.85, 0.90, 1.00, 0.85) if not done else Color(0.50, 0.60, 0.50))
-			rx += 52.0
+				dot_col = dot_col.darkened(0.45)
+			dot_col.a = alpha
 
-		y += 22.0
+			# Обводка для контрасту
+			draw_circle(Vector2(rx + DOT_R, dots_y), DOT_R + 2.0,
+				Color(0.0, 0.0, 0.0, 0.40 * alpha))
+			draw_circle(Vector2(rx + DOT_R, dots_y), DOT_R, dot_col)
 
-		if i < TaskManager.TASKS.size() - 1:
-			draw_line(Vector2(10, y), Vector2(PANEL_W - 10, y),
-				Color(0.25, 0.35, 0.50, 0.4), 1.0)
-			y += 8.0
+			var cnt_col := Color(0.92, 0.96, 1.00, alpha) if not done \
+					else Color(0.45, 0.55, 0.45, alpha)
+			draw_string(font, Vector2(rx + DOT_R * 2.0 + 6.0, dots_y + 6.0),
+				"×%d" % count, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_CNT, cnt_col)
+			rx += DOT_STEP
 
-func _apply_toggle_style() -> void:
-	_toggle_btn.custom_minimum_size = Vector2(TOGGLE_W, TOGGLE_H)
-	_toggle_btn.text = "<"
-
-	var s := StyleBoxFlat.new()
-	s.bg_color    = Color(0.12, 0.20, 0.35, 0.95)
-	s.border_color = Color(0.30, 0.45, 0.65, 0.8)
-	s.set_border_width_all(2)
-	s.corner_radius_top_left    = 8
-	s.corner_radius_bottom_left = 8
-	_toggle_btn.add_theme_stylebox_override("normal", s)
-
-	var sh := s.duplicate()
-	sh.bg_color = Color(0.18, 0.30, 0.50, 0.95)
-	_toggle_btn.add_theme_stylebox_override("hover", sh)
-	_toggle_btn.add_theme_color_override("font_color", Color.WHITE)
-	_toggle_btn.add_theme_font_size_override("font_size", 14)
-
-func _toggle() -> void:
-	if _tweening:
-		return
-	_tweening = true
-	_open = not _open
-	_toggle_btn.text = ">" if not _open else "<"
-
-	var target_x := _pos_open if _open else _pos_closed
-	var tween := create_tween()
-	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(self, "position:x", target_x, 0.3)
-	tween.parallel().tween_property(_toggle_btn, "position:x", target_x - TOGGLE_W, 0.3)
-	tween.tween_callback(func(): _tweening = false)
+		y += ch + CARD_GAP

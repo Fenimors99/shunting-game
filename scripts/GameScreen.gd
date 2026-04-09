@@ -1,7 +1,7 @@
 extends Node2D
 
 @onready var queue:              WagonQueue  = $Queue
-@onready var station:            Node2D      = $Station
+@onready var station:            Station     = $Station
 @onready var loco_depot:         LocoDepot   = $LocoDepot
 @onready var task_manager:       TaskManager = $TaskManager
 @onready var task_panel:         TaskPanel   = $TaskPanel
@@ -14,6 +14,23 @@ var _timer_label: Label
 var _timer_running: bool = false
 var _time_elapsed: float = 0.0
 
+var _pause_btn: Button
+var _pause_overlay: Panel
+var _pause_black_bg: ColorRect
+
+# --- Бали (тільки нескінченний режим) ---
+const SLOT_BASE_SCORES := [10, 20, 30, 50, 100]
+var _total_score: int  = 0
+var _streak:      int  = 0   # кількість здач підряд без повернення в чергу
+var _score_label:  Label = null
+var _streak_label: Label = null
+var _spawn_btn: Button = null
+
+const WAGON_ANIM_DELAY        := 0.18
+const WAGON_RETURN_DELAY      := Layout.WAGON_GAP / Layout.SPEED  # ~0.25 — фізична відстань між вагонами
+const VICTORY_WAIT_TIME := 2.2
+const FADE_DURATION     := 0.8
+
 func _ready() -> void:
 	queue.position.y = Layout.QUEUE_Y
 	queue.wagon_at_center.connect(_on_wagon_at_center)
@@ -23,21 +40,22 @@ func _ready() -> void:
 	station.track_exit_choice.connect(_on_track_exit_choice)
 	loco_depot.availability_changed.connect(station.set_loco_available)
 	station.set_task_manager(task_manager)
-	var vp := get_viewport_rect().size
-	task_toggle_button.position = Vector2(
-		vp.x - TaskPanel.TOGGLE_W,
-		(vp.y - TaskPanel.TOGGLE_H) / 2.0
-	)
+	station.set_wagon_queue(queue)
 	task_panel.init(task_manager, task_toggle_button)
 	task_manager.task_completed.connect(func(_i): station.refresh_all_exit_buttons())
 	task_manager.all_tasks_completed.connect(_on_all_tasks_completed)
+	station.repair_completed.connect(_on_repair_completed)
+	station.loading_completed.connect(_on_loading_completed)
 	_create_start_button()
 	
 func _on_all_tasks_completed() -> void:
+	# В нескінченному режимі завдань завжди є — сигнал не емітується,
+	# але захист на випадок майбутніх змін
+	if LevelConfig.current_level == 0:
+		return
 	_timer_running = false
-	# Чекаємо поки вагони відʼїдуть, потім fade-to-black → victory
 	var tween := create_tween()
-	tween.tween_interval(2.2)
+	tween.tween_interval(VICTORY_WAIT_TIME)
 	tween.tween_callback(_start_victory_transition)
 
 func _start_victory_transition() -> void:
@@ -47,7 +65,7 @@ func _start_victory_transition() -> void:
 	overlay.z_index = 100
 	add_child(overlay)
 	var tween := create_tween()
-	tween.tween_property(overlay, "color", Color(0.0, 0.0, 0.0, 1.0), 0.8)
+	tween.tween_property(overlay, "color", Color(0.0, 0.0, 0.0, 1.0), FADE_DURATION)
 	tween.tween_callback(func():
 		var victory_scene = load("res://scenes/VictoryScreen.tscn").instantiate()
 		victory_scene.final_time = _format_time(_time_elapsed)
@@ -93,14 +111,23 @@ func _create_start_button() -> void:
 
 	btn.pressed.connect(_on_start_pressed.bind(btn))
 	add_child(btn)
-	_create_timer_label() # Додаємо цей рядок
+	_create_timer_label()
+	_create_pause_ui()
+	if LevelConfig.current_level == 0:
+		_create_score_display()
 	
 func _create_timer_label() -> void:
-	var W := 210.0
-	var H := 62.0
+	const W := 210.0
+	const H := 62.0
+	const PAUSE_SIZE := 62.0
+	const GAP := 10.0
+	var vp := get_viewport_rect().size
+	# Центруємо таймер + кнопку паузи разом
+	var total_w := W + GAP + PAUSE_SIZE
+	var start_x := (vp.x - total_w) / 2.0
 	var box := Node2D.new()
 	box.z_index = 1
-	box.position = Vector2(16, 16)
+	box.position = Vector2(start_x, 16)
 	box.connect("draw", func():
 		box.draw_rect(Rect2(0, 0, W, H), Color(0.06, 0.09, 0.15, 0.96))
 		box.draw_rect(Rect2(0, 0, W, H), Color(0.30, 0.45, 0.65, 0.8), false, 2.0)
@@ -118,17 +145,245 @@ func _process(delta: float) -> void:
 	if _timer_running:
 		_time_elapsed += delta
 		_timer_label.text = "Час: " + _format_time(_time_elapsed)
+	if _spawn_btn != null:
+		var should_disable := not queue.is_below_limit() or queue._returning or queue._spawn_settle_timer > 0.0
+		if _spawn_btn.disabled != should_disable:
+			_spawn_btn.disabled = should_disable
+			_spawn_btn.queue_redraw()
 
 func _format_time(time_in_sec: float) -> String:
 	var m := int(time_in_sec) / 60
 	var s := int(time_in_sec) % 60
 	return "%02d:%02d" % [m, s]
 	
+func _create_pause_ui() -> void:
+	_create_pause_button()
+	_create_pause_overlay()
+
+func _create_pause_button() -> void:
+	const SIZE_PX    := 62.0
+	const TIMER_W    := 210.0
+	const GAP        := 10.0
+	const TOTAL_W    := TIMER_W + GAP + SIZE_PX
+	var vp := get_viewport_rect().size
+	var start_x := (vp.x - TOTAL_W) / 2.0
+	_pause_btn = Button.new()
+	_pause_btn.custom_minimum_size = Vector2(SIZE_PX, SIZE_PX)
+	_pause_btn.position = Vector2(start_x + TIMER_W + GAP, 16)
+	_pause_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	_pause_btn.flat = true
+	_pause_btn.visible = false
+	_pause_btn.z_index = 51
+	_pause_btn.connect("draw", func():
+		var center := Vector2(SIZE_PX / 2, SIZE_PX / 2)
+		var radius  := SIZE_PX / 2
+		var color_bg     := Color(0.06, 0.09, 0.15, 0.96)
+		var color_border := Color(0.30, 0.45, 0.65, 0.8)
+		var color_icon   := Color(0.80, 0.88, 1.00, 0.95)
+		_pause_btn.draw_circle(center, radius, color_bg)
+		_pause_btn.draw_arc(center, radius - 1, 0, TAU, 64, color_border, 2.0, true)
+		if get_tree().paused:
+			_pause_btn.draw_colored_polygon(
+				PackedVector2Array([Vector2(25, 20), Vector2(25, 42), Vector2(45, 31)]), color_icon)
+		else:
+			_pause_btn.draw_rect(Rect2(22, 20, 6, 22), color_icon)
+			_pause_btn.draw_rect(Rect2(34, 20, 6, 22), color_icon)
+	)
+	_pause_btn.pressed.connect(_on_pause_toggle)
+	add_child(_pause_btn)
+
+func _create_score_display() -> void:
+	const W      := 230.0
+	const H      := 62.0
+	const MARGIN := 16.0
+	var vp := get_viewport_rect().size
+
+	var box := Node2D.new()
+	box.z_index = 1
+	box.position = Vector2(vp.x - W - MARGIN, 16)
+	box.connect("draw", func():
+		box.draw_rect(Rect2(0, 0, W, H), Color(0.06, 0.09, 0.15, 0.96))
+		box.draw_rect(Rect2(0, 0, W, H), Color(0.30, 0.45, 0.65, 0.8), false, 2.0)
+		box.draw_rect(Rect2(2, 2, W - 4, H - 4), Color(0.50, 0.65, 0.85, 0.10), false, 1.0)
+	)
+
+	# Стрік — зліва, маленький
+	_streak_label = Label.new()
+	_streak_label.position = Vector2(10, 8)
+	_streak_label.add_theme_font_size_override("font_size", 15)
+	_streak_label.text = ""
+	box.add_child(_streak_label)
+
+	# Бали — під стріком, більший шрифт
+	_score_label = Label.new()
+	_score_label.position = Vector2(10, 30)
+	_score_label.add_theme_font_size_override("font_size", 22)
+	_score_label.add_theme_color_override("font_color", Color(0.98, 0.88, 0.30, 0.95))
+	_score_label.text = "Бали: 0"
+	box.add_child(_score_label)
+	box.add_child(_streak_label)
+
+	add_child(box)
+
+func _update_score_display() -> void:
+	if _score_label == null:
+		return
+	_score_label.text = "Бали: %d" % _total_score
+	if _streak >= 3:
+		_streak_label.text = "Серія ×2.0  🔥"
+		_streak_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.15, 0.95))
+	elif _streak == 2:
+		_streak_label.text = "Серія ×1.5"
+		_streak_label.add_theme_color_override("font_color", Color(1.0, 0.65, 0.15, 0.95))
+	else:
+		_streak_label.text = ""
+
+func _score_submit(task_idx: int, wagons: Array) -> void:
+	if LevelConfig.current_level != 0:
+		return
+	# Базові очки слоту
+	var base: int = SLOT_BASE_SCORES[task_idx] if task_idx < SLOT_BASE_SCORES.size() else 10
+	# Бонус за рожеві вагони (+10% за кожен)
+	var pink_count := 0
+	for w in wagons:
+		if w.wagon_type == Wagon.WagonType.NORMAL and int(w.color_id) == 4:
+			pink_count += 1
+	var after_pink: float = base * (1.0 + pink_count * 0.1)
+	# Стрік: спочатку рахуємо здачу, потім застосовуємо множник
+	_streak += 1
+	var streak_mult := 1.0
+	if _streak == 2:
+		streak_mult = 1.5
+	elif _streak >= 3:
+		streak_mult = 2.0
+	var points := int(round(after_pink * streak_mult))
+	_total_score += points
+	_update_score_display()
+
+func _create_pause_overlay() -> void:
+	var vp := get_viewport_rect().size
+
+	_pause_black_bg = ColorRect.new()
+	_pause_black_bg.color = Color(0.0, 0.0, 0.0, 1.0)
+	_pause_black_bg.size = vp
+	_pause_black_bg.visible = false
+	_pause_black_bg.process_mode = Node.PROCESS_MODE_ALWAYS
+	_pause_black_bg.z_index = 50
+	add_child(_pause_black_bg)
+
+	_pause_overlay = Panel.new()
+	_pause_overlay.size = Vector2(420, 380)
+	_pause_overlay.position = (vp - _pause_overlay.size) / 2.0
+	_pause_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	_pause_overlay.visible = false
+	_pause_overlay.z_index = 51
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.09, 0.15, 0.98)
+	style.border_color = Color(0.30, 0.45, 0.65, 1.0)
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(20)
+	_pause_overlay.add_theme_stylebox_override("panel", style)
+	add_child(_pause_overlay)
+
+	var lbl := Label.new()
+	lbl.text = "Гру призупинено"
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.position = Vector2(0, 40)
+	lbl.size = Vector2(420, 50)
+	lbl.add_theme_font_size_override("font_size", 32)
+	lbl.add_theme_color_override("font_color", Color(0.80, 0.88, 1.00))
+	_pause_overlay.add_child(lbl)
+
+	var btn_container := VBoxContainer.new()
+	btn_container.size = Vector2(300, 220)
+	btn_container.position = Vector2(60, 110)
+	btn_container.add_theme_constant_override("separation", 15)
+	_pause_overlay.add_child(btn_container)
+	_populate_pause_menu(btn_container)
+
+func _populate_pause_menu(container: VBoxContainer) -> void:
+	var make_btn := func(txt: String, color: Color) -> Button:
+		var b := Button.new()
+		b.text = txt
+		b.custom_minimum_size = Vector2(0, 70)
+		var bs := StyleBoxFlat.new()
+		bs.bg_color = color.darkened(0.3)
+		bs.set_corner_radius_all(10)
+		bs.set_border_width_all(1)
+		bs.border_color = color
+		b.add_theme_stylebox_override("normal", bs)
+		b.add_theme_font_size_override("font_size", 22)
+		return b
+
+	var btn_resume: Button = make_btn.call("Продовжити", Color(0.3, 0.6, 0.9))
+	btn_resume.pressed.connect(_on_pause_toggle)
+	container.add_child(btn_resume)
+
+	var btn_restart: Button = make_btn.call("Почати заново", Color(0.3, 0.8, 0.4))
+	btn_restart.pressed.connect(func():
+		get_tree().paused = false
+		get_tree().reload_current_scene()
+	)
+	container.add_child(btn_restart)
+
+	var btn_exit: Button = make_btn.call("Вихід до рівнів", Color(0.8, 0.3, 0.3))
+	btn_exit.pressed.connect(func():
+		get_tree().paused = false
+		get_tree().change_scene_to_file("res://scenes/LevelSelect.tscn")
+	)
+	container.add_child(btn_exit)
+	
+func _on_pause_toggle() -> void:
+	var new_pause_state = not get_tree().paused
+	get_tree().paused = new_pause_state
+	
+	# Оновлюємо видимість обох елементів паузи
+	_pause_black_bg.visible = new_pause_state # <--- ДОДАТО
+	_pause_overlay.visible = new_pause_state
+	
+	# 2. Ховаємо КРУЖЕЧОК, якщо ми на паузі, і показуємо, якщо повернулися в гру
+	_pause_btn.visible = not new_pause_state
+	
+	_pause_btn.queue_redraw()
+	
 func _on_start_pressed(btn: Button) -> void:
 	btn.queue_free()
 	queue.start()
 	_timer_running = true
+	_pause_btn.visible = true
+	_create_spawn_button()
 
+func _create_spawn_button() -> void:
+	const SIZE := 62.0
+	const MARGIN := 16.0
+	var vp := get_viewport_rect().size
+	_spawn_btn = Button.new()
+	_spawn_btn.custom_minimum_size = Vector2(SIZE, SIZE)
+	_spawn_btn.position = Vector2(vp.x - SIZE - MARGIN, Layout.QUEUE_Y - SIZE * 1.5)
+	_spawn_btn.flat = true
+	_spawn_btn.z_index = 1
+	_spawn_btn.connect("draw", func():
+		var center := Vector2(SIZE / 2.0, SIZE / 2.0)
+		var color_bg     := Color(0.10, 0.30, 0.60, 0.95)
+		var color_border := Color(0.35, 0.60, 1.00, 0.9)
+		var color_icon   := Color(1.0, 1.0, 1.0, 0.95)
+		if _spawn_btn.disabled:
+			color_bg     = Color(0.15, 0.15, 0.20, 0.6)
+			color_border = Color(0.3, 0.3, 0.4, 0.5)
+			color_icon   = Color(0.5, 0.5, 0.55, 0.5)
+		_spawn_btn.draw_circle(center, SIZE / 2.0, color_bg)
+		_spawn_btn.draw_arc(center, SIZE / 2.0 - 1.0, 0.0, TAU, 64, color_border, 2.0, true)
+		var t := SIZE / 2.0
+		var arm := 13.0
+		_spawn_btn.draw_line(Vector2(t - arm, t), Vector2(t + arm, t), color_icon, 3.0, true)
+		_spawn_btn.draw_line(Vector2(t, t - arm), Vector2(t, t + arm), color_icon, 3.0, true)
+	)
+	_spawn_btn.pressed.connect(func():
+		queue.fill_to_limit()
+		_spawn_btn.queue_redraw()
+	)
+	add_child(_spawn_btn)
+	
 func _on_track_entry_tapped(track_index: int) -> void:
 	if _wagon_at_center == null:
 		return
@@ -177,9 +432,9 @@ func _on_track_exit_tapped(track_index: int) -> void:
 	if not loco_depot.use_locomotive():
 		return
 	var wagons: Array = station.pop_all_wagons(track_index)
-	if track_index == 7:
+	if track_index == Layout.REPAIR_TRACK:
 		_animate_to_repair(wagons)
-	elif track_index == 1:
+	elif track_index == Layout.CARGO_TRACK:
 		_animate_to_loading(wagons)
 	else:
 		_animate_exit(wagons, track_index)
@@ -189,85 +444,74 @@ func _on_track_exit_choice(track_index: int, submit: bool) -> void:
 		return
 	var wagons: Array = station.pop_all_wagons(track_index)
 	if submit:
-		task_manager.submit(wagons)
+		var task_idx := task_manager.submit(wagons)
+		if task_idx == -1:
+			# Склад колії змінився поки меню було відкрите — повертаємо вагони
+			_return_to_queue(wagons, track_index)
+			return
+		_score_submit(task_idx, wagons)
 		_animate_submit(wagons, track_index)
 	else:
+		# Свідоме повернення в чергу — скидаємо стрік
+		if LevelConfig.current_level == 0 and _streak > 0:
+			_streak = 0
+			_update_score_display()
 		_return_to_queue(wagons, track_index)
+
+# Шлях від слоту на колії до центральної збірної рейки (спільна частина для exit/submit/queue).
+func _build_exit_path_to_center(wagon: Wagon, track_index: int) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	pts.append(wagon.position)
+	pts.append(Vector2(Layout.get_exit_rail_x(track_index), Layout.get_track_y(track_index)))
+	if track_index < Layout.CENTER_TRACK:
+		for j in range(track_index + 1, Layout.CENTER_TRACK + 1):
+			pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
+	elif track_index > Layout.CENTER_TRACK:
+		for j in range(track_index - 1, Layout.CENTER_TRACK - 1, -1):
+			pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
+	return pts
+
+func _animate_delayed(wagon: Wagon, pts: PackedVector2Array, delay: float, on_done: Callable) -> void:
+	var tween := create_tween()
+	tween.tween_interval(delay)
+	tween.tween_callback(func(): _animate_along_path(wagon, pts, on_done))
 
 func _animate_exit(wagons: Array, track_index: int) -> void:
 	var exit_arc := Layout.get_exit_arc()
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
-		# Будуємо шлях: слот → збірна рейка → дуга → за екран
-		var pts := PackedVector2Array()
-		pts.append(wagon.position)
-		pts.append(Vector2(Layout.get_exit_rail_x(track_index), Layout.get_track_y(track_index)))
-		if track_index < Layout.CENTER_TRACK:
-			for j in range(track_index + 1, Layout.CENTER_TRACK + 1):
-				pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
-		elif track_index > Layout.CENTER_TRACK:
-			for j in range(track_index - 1, Layout.CENTER_TRACK - 1, -1):
-				pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
+		var pts := _build_exit_path_to_center(wagon, track_index)
 		pts.append_array(exit_arc)
 		pts.append(Vector2(-Layout.WAGON_GAP, Layout.QUEUE_Y))
-		var idx := i
-		var delay_tween := create_tween()
-		delay_tween.tween_interval(idx * 0.18)
-		delay_tween.tween_callback(func():
-			_animate_along_path(wagon, pts, wagon.queue_free)
-		)
+		_animate_delayed(wagon, pts, i * WAGON_ANIM_DELAY, wagon.queue_free)
 
 func _return_to_queue(wagons: Array, track_index: int) -> void:
-	var exit_arc := Layout.get_exit_arc()
+	queue.set_returning(true)
+	var exit_arc    := Layout.get_exit_arc()
 	var base_tail_x := queue.get_tail_x() + Layout.WAGON_GAP
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
-		var pts := PackedVector2Array()
-		pts.append(wagon.position)
-		pts.append(Vector2(Layout.get_exit_rail_x(track_index), Layout.get_track_y(track_index)))
-		if track_index < Layout.CENTER_TRACK:
-			for j in range(track_index + 1, Layout.CENTER_TRACK + 1):
-				pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
-		elif track_index > Layout.CENTER_TRACK:
-			for j in range(track_index - 1, Layout.CENTER_TRACK - 1, -1):
-				pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
+		var pts := _build_exit_path_to_center(wagon, track_index)
 		pts.append_array(exit_arc)
 		pts.append(Vector2(base_tail_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y))
-		var idx := i
-		var delay_tween := create_tween()
-		delay_tween.tween_interval(idx * 0.18)
-		delay_tween.tween_callback(func():
-			_animate_along_path(wagon, pts, func():
-				wagon.rotation = PI
-				queue.receive_wagon(wagon)
-			)
+		var is_last := (i == wagons.size() - 1)
+		_animate_delayed(wagon, pts, i * WAGON_ANIM_DELAY, func():
+			wagon.rotation = PI
+			queue.receive_wagon(wagon)
+			if is_last:
+				queue.set_returning(false)
 		)
 
 func _animate_submit(wagons: Array, track_index: int) -> void:
 	var center_y := Layout.get_track_y(Layout.CENTER_TRACK)
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
-		# Той самий шлях що _animate_exit: збірна рейка → центр,
-		# але замість дуги — пряма вправо по рейці здачі
-		var pts := PackedVector2Array()
-		pts.append(wagon.position)
-		pts.append(Vector2(Layout.get_exit_rail_x(track_index), Layout.get_track_y(track_index)))
-		if track_index < Layout.CENTER_TRACK:
-			for j in range(track_index + 1, Layout.CENTER_TRACK + 1):
-				pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
-		elif track_index > Layout.CENTER_TRACK:
-			for j in range(track_index - 1, Layout.CENTER_TRACK - 1, -1):
-				pts.append(Vector2(Layout.get_exit_rail_x(j), Layout.get_track_y(j)))
+		var pts := _build_exit_path_to_center(wagon, track_index)
 		pts.append(Vector2(Layout.SCREEN_W + Layout.WAGON_GAP, center_y))
-		var idx := i
-		var delay_tween := create_tween()
-		delay_tween.tween_interval(idx * 0.18)
-		delay_tween.tween_callback(func():
-			_animate_along_path(wagon, pts, wagon.queue_free)
-		)
+		_animate_delayed(wagon, pts, i * WAGON_ANIM_DELAY, wagon.queue_free)
 
 func _animate_to_loading(wagons: Array) -> void:
-	var arc    := Layout.get_track1_exit_arc()
+	var arc     := Layout.get_track1_exit_arc()
 	var arc_end := arc[arc.size() - 1]
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
@@ -275,24 +519,63 @@ func _animate_to_loading(wagons: Array) -> void:
 		pts.append(wagon.position)
 		pts.append_array(arc)
 		pts.append(Vector2(arc_end.x, -Layout.WAGON_GAP))
-		var idx := i
-		var delay_tween := create_tween()
-		delay_tween.tween_interval(idx * 0.18)
-		delay_tween.tween_callback(func():
-			_animate_along_path(wagon, pts, wagon.queue_free)
+		var is_last := (i == wagons.size() - 1)
+		_animate_delayed(wagon, pts, i * WAGON_ANIM_DELAY, func():
+			if is_last:
+				station.start_loading(wagons)
 		)
 
 func _animate_to_repair(wagons: Array) -> void:
 	var dest_x   := Layout.REPAIR_DEPOT_RECT.get_center().x
-	var track7_y := Layout.get_track_y(7)
+	var track7_y := Layout.get_track_y(Layout.REPAIR_TRACK)
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
+		var pts := PackedVector2Array([wagon.position, Vector2(dest_x, track7_y)])
+		var is_last := (i == wagons.size() - 1)
+		_animate_delayed(wagon, pts, i * WAGON_ANIM_DELAY, func():
+			wagon.rotation = 0.0
+			if is_last:
+				station.start_repair(wagons)
+		)
+
+func _on_loading_completed(wagons: Array) -> void:
+	queue.set_returning(true)
+	var ret_x       := Layout.get_loading_return_x()
+	var ret_arc     := Layout.get_loading_return_arc()
+	var exit_arc    := Layout.get_exit_arc()
+	var base_tail_x := queue.get_tail_x() + Layout.WAGON_GAP
+	for i in wagons.size():
+		var wagon: Wagon = wagons[i]
+		wagon.become_loaded()
+		wagon.position = Vector2(ret_x, -Layout.WAGON_GAP)
 		var pts := PackedVector2Array()
 		pts.append(wagon.position)
-		pts.append(Vector2(dest_x, track7_y))
-		var idx := i
-		var delay_tween := create_tween()
-		delay_tween.tween_interval(idx * 0.18)
-		delay_tween.tween_callback(func():
-			_animate_along_path(wagon, pts, wagon.queue_free)
+		pts.append_array(ret_arc)                    # → (1620, 575) вправо
+		pts.append_array(exit_arc.slice(2))          # крок 3+: дуга→вертикаль→дуга→QUEUE_Y
+		pts.append(Vector2(base_tail_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y))
+		var is_last := (i == wagons.size() - 1)
+		_animate_delayed(wagon, pts, i * WAGON_RETURN_DELAY, func():
+			wagon.rotation = PI
+			queue.receive_wagon(wagon)
+			if is_last:
+				queue.set_returning(false)
+		)
+
+func _on_repair_completed(wagons: Array) -> void:
+	queue.set_returning(true)
+	var arc         := Layout.get_repair_exit_arc()
+	var base_tail_x := queue.get_tail_x() + Layout.WAGON_GAP
+	for i in wagons.size():
+		var wagon: Wagon = wagons[i]
+		wagon.repair()
+		var pts := PackedVector2Array()
+		pts.append(wagon.position)
+		pts.append_array(arc)
+		pts.append(Vector2(base_tail_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y))
+		var is_last := (i == wagons.size() - 1)
+		_animate_delayed(wagon, pts, i * WAGON_RETURN_DELAY, func():
+			wagon.rotation = PI
+			queue.receive_wagon(wagon)
+			if is_last:
+				queue.set_returning(false)
 		)

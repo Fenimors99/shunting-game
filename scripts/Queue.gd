@@ -12,7 +12,8 @@ var _wagon_dists: Array[float] = []  # відстань від центру дл
 
 var _blocked: bool = false
 var _running: bool = false
-var _spawn_timer: float = 0.0
+var _returning: bool = false         # true поки вагони анімуються назад у чергу
+var _spawn_settle_timer: float = 0.0 # > 0 поки вагони від кнопки ще не доїхали до видимої зони
 
 # Дуга, перевернута: _arc_pts[0] = центр, _arc_pts[-1] = QUEUE_STOP_X
 var _arc_pts: PackedVector2Array
@@ -61,14 +62,14 @@ func _position_at_dist(d: float) -> Vector2:
 
 func start() -> void:
 	_running = true
-	_spawn_timer = 0.0
 
 
 func _process(delta: float) -> void:
 	if not _running:
 		return
+	if _spawn_settle_timer > 0.0:
+		_spawn_settle_timer = maxf(0.0, _spawn_settle_timer - delta)
 	_move_wagons(delta)
-	_try_spawn_by_timer(delta)
 	if not _blocked:
 		_check_front_wagon()
 
@@ -138,14 +139,35 @@ func is_blocked() -> bool:
 
 func _create_random_wagon() -> Wagon:
 	var w: Wagon = WAGON_SCENE.instantiate()
-	var roll := randi() % 5
-	if roll == 0:
-		w.wagon_type = Wagon.WagonType.BROKEN
-	elif roll == 1:
-		w.wagon_type = Wagon.WagonType.CARGO
+	if LevelConfig.current_level == 0:
+		# Нескінченний режим: Red 7%, White 13%, Blue/Green/Yellow/Purple по 20%
+		var roll := randi() % 100
+		if roll < 7:
+			w.wagon_type = Wagon.WagonType.BROKEN
+		elif roll < 20:
+			w.wagon_type = Wagon.WagonType.CARGO
+		elif roll < 40:
+			w.wagon_type = Wagon.WagonType.NORMAL
+			w.color_id = Wagon.WagonColorId.BLUE
+		elif roll < 60:
+			w.wagon_type = Wagon.WagonType.NORMAL
+			w.color_id = Wagon.WagonColorId.GREEN
+		elif roll < 80:
+			w.wagon_type = Wagon.WagonType.NORMAL
+			w.color_id = Wagon.WagonColorId.YELLOW
+		else:
+			w.wagon_type = Wagon.WagonType.NORMAL
+			w.color_id = Wagon.WagonColorId.PURPLE
 	else:
-		w.wagon_type = Wagon.WagonType.NORMAL
-		w.color_id = randi() % Wagon.NORMAL_COLORS.size() as Wagon.WagonColorId
+		# Статичні рівні: оригінальна логіка спавну
+		var roll := randi() % 5
+		if roll == 0:
+			w.wagon_type = Wagon.WagonType.BROKEN
+		elif roll == 1:
+			w.wagon_type = Wagon.WagonType.CARGO
+		else:
+			w.wagon_type = Wagon.WagonType.NORMAL
+			w.color_id = randi() % Wagon.WagonColorId.size() as Wagon.WagonColorId
 	w.rotation = PI
 	return w
 
@@ -166,17 +188,36 @@ func _spawn_wagon(spawn_offscreen: bool) -> void:
 	_wagon_dists.append(start_dist)
 
 
-func _try_spawn_by_timer(delta: float) -> void:
-	if _wagons.size() >= Layout.QUEUE_VISIBLE_LIMIT:
+# --- Ручне поповнення черги ---
+
+func fill_to_limit() -> void:
+	var count := Layout.QUEUE_VISIBLE_LIMIT - _wagons.size()
+	if count <= 0:
 		return
-	_spawn_timer += delta
-	if _spawn_timer < Layout.QUEUE_SPAWN_INTERVAL:
-		return
-	_spawn_timer = 0.0
-	_spawn_wagon(true)
+	for _i in count:
+		_spawn_wagon(true)
+	# Час доїзду останнього вагона до входу в дугу (x = QUEUE_STOP_X + QUEUE_ARC_R = 300).
+	# Фактична x-позиція спавну = 300 + (QUEUE_OFFSCREEN_SPAWN_X - QUEUE_STOP_X) = 2130.
+	# Відстань до дуги = QUEUE_OFFSCREEN_SPAWN_X - QUEUE_STOP_X = 1830px → ~4.2с на вагон.
+	var last_extra := float(count - 1) * Layout.WAGON_GAP
+	_spawn_settle_timer = (Layout.QUEUE_OFFSCREEN_SPAWN_X - Layout.QUEUE_STOP_X + last_extra) / Layout.SPEED
+
+func is_below_limit() -> bool:
+	return _wagons.size() < Layout.QUEUE_VISIBLE_LIMIT
 
 
 # --- Повернення вагона з станції ---
+
+func get_wagon_count() -> int:
+	return _wagons.size()
+
+func has_capacity_for(n: int) -> bool:
+	if _returning or _spawn_settle_timer > 0.0:
+		return false
+	return _wagons.size() + n <= Layout.QUEUE_MAX_CAPACITY
+
+func set_returning(v: bool) -> void:
+	_returning = v
 
 func get_tail_x() -> float:
 	if _wagon_dists.is_empty():
@@ -187,7 +228,18 @@ func get_tail_x() -> float:
 func receive_wagon(wagon: Wagon) -> void:
 	wagon.reparent(self, true)
 	wagon.stop_blocking()
-	var tail_dist: float = (_wagon_dists.back() + Layout.WAGON_GAP) if not _wagon_dists.is_empty() else (_arc_length + Layout.WAGON_GAP)
-	wagon.position = _position_at_dist(tail_dist)
+	# Виводимо dist із поточної позиції вагона (кінцева точка анімації),
+	# щоб уникнути стрибка через просування черги під час польоту.
+	# Після reparent позиція вагона — в локальному просторі Queue (world_x, 0).
+	var arc_entry_x := Layout.QUEUE_STOP_X + Layout.QUEUE_ARC_R  # = 300
+	var tail_dist: float
+	if wagon.position.x > arc_entry_x:
+		tail_dist = _arc_length + (wagon.position.x - arc_entry_x)
+	else:
+		tail_dist = _arc_length + Layout.WAGON_GAP  # fallback
+	# Вагон не може бути попереду хвоста (якщо черга сильно просунулась)
+	if not _wagon_dists.is_empty() and tail_dist < _wagon_dists.back() + Layout.WAGON_GAP:
+		tail_dist = _wagon_dists.back() + Layout.WAGON_GAP
+		wagon.position = _position_at_dist(tail_dist)
 	_wagons.append(wagon)
 	_wagon_dists.append(tail_dist)

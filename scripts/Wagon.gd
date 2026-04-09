@@ -10,6 +10,7 @@ const NORMAL_COLORS := [
 	Color(0.20, 0.75, 0.35),  # GREEN
 	Color(0.95, 0.80, 0.15),  # YELLOW
 	Color(0.65, 0.25, 0.85),  # PURPLE
+	Color(1.0, 0.4, 0.7),     # Pink
 ]
 
 # Попередньо завантажуємо текстури з папки assets
@@ -49,6 +50,15 @@ func _setup_visuals() -> void:
 	_shadow.scale = Vector2(0.135, 0.135) 
 	_shadow.position = Vector2.ZERO
 	_shadow.modulate = Color(0.9, 0.15, 0.15, 0.85)
+
+func repair() -> void:
+	wagon_type = WagonType.CARGO
+	_refresh()
+
+func become_loaded() -> void:
+	wagon_type = WagonType.NORMAL
+	color_id   = 4  # Pink (NORMAL_COLORS[4])
+	_refresh()
 
 func start_blocking() -> void:
 	state = State.BLOCKED

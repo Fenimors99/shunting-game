@@ -53,21 +53,21 @@ func available_count() -> int:
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
 
-	# Фон
-	draw_rect(Rect2(0, 0, W, H), Color(0.10, 0.08, 0.05, 0.93))
-	draw_rect(Rect2(0, 0, W, H), Color(0.60, 0.45, 0.20, 0.85), false, 2.0)
-	draw_rect(Rect2(2, 2, W - 4, H - 4), Color(0.70, 0.55, 0.25, 0.12), false, 1.0)
+	# Фон — загальний стиль
+	draw_rect(Rect2(0, 0, W, H),         Color(0.06, 0.09, 0.15, 0.96))
+	draw_rect(Rect2(0, 0, W, H),         Color(0.30, 0.45, 0.65, 0.80), false, 2.0)
+	draw_rect(Rect2(2, 2, W - 4, H - 4), Color(0.50, 0.65, 0.85, 0.10), false, 1.0)
 
 	# Заголовок
 	draw_string(font, Vector2(12, 22),
 		"Локомотивне депо",
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.85, 0.70, 0.35, 0.9))
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.80, 0.88, 1.00, 0.70))
 
 	for i in MAX_LOCOS:
 		var y := 42 + i * 24
 		var free := _timers[i] == 0.0
-		draw_circle(Vector2(18, y), 7, Color(0.25, 0.85, 0.40) if free else Color(0.90, 0.50, 0.15))
+		draw_circle(Vector2(18, y), 7, Color(0.30, 0.90, 0.50) if free else Color(0.90, 0.55, 0.20))
 		var label := "доступний" if free else "%dс" % ceili(_timers[i])
-		var col := Color(0.75, 0.90, 0.75) if free else Color(0.95, 0.75, 0.40)
+		var col   := Color(0.60, 0.95, 0.65) if free else Color(0.80, 0.88, 1.00, 0.95)
 		draw_string(font, Vector2(34, y + 6), label,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 15, col)

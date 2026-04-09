@@ -20,6 +20,10 @@ config/version="0.1.0"
 run/main_scene="res://scenes/LoginScreen.tscn"
 config/features=PackedStringArray("4.6")
 
+[autoload]
+
+LevelConfig="*res://scripts/LevelConfig.gd"
+
 [display]
 
 window/size/viewport_width=1920
