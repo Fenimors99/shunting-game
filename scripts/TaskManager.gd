@@ -19,11 +19,12 @@ const STATIC_TASKS: Array = [
 		# 3. Комбіноване завдання для закріплення
 		{ 4: 1, Wagon.WagonColorId.YELLOW: 1, Wagon.WagonColorId.BLUE: 1 },
 	],
-	# Рівень 2 (залишається як був)
+	# Рівень 2 (ГОЛОВОЛОМКА - 4 завдання, нелінійне проходження)
 	[
-		{ Wagon.WagonColorId.GREEN: 3, Wagon.WagonColorId.YELLOW: 2 },
-		{ Wagon.WagonColorId.BLUE: 3, Wagon.WagonColorId.PURPLE: 2 },
-		{ Wagon.WagonColorId.YELLOW: 1, Wagon.WagonColorId.GREEN: 1, Wagon.WagonColorId.BLUE: 2 },
+		{ Wagon.WagonColorId.BLUE: 2, Wagon.WagonColorId.GREEN: 1 }, # Завдання 1
+		{ 4: 1, Wagon.WagonColorId.YELLOW: 2 },                      # Завдання 2 (Рожевий + Жовті)
+		{ 4: 1, Wagon.WagonColorId.PURPLE: 1 },                      # Завдання 3 (Рожевий + Фіолет)
+		{ Wagon.WagonColorId.GREEN: 1, Wagon.WagonColorId.BLUE: 1, Wagon.WagonColorId.PURPLE: 1 }, # Завдання 4 (Мікс)
 	],
 	# Рівень 3
 	[
