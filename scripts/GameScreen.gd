@@ -68,7 +68,10 @@ func _start_victory_transition() -> void:
 	tween.tween_property(overlay, "color", Color(0.0, 0.0, 0.0, 1.0), FADE_DURATION)
 	tween.tween_callback(func():
 		var victory_scene = load("res://scenes/VictoryScreen.tscn").instantiate()
-		victory_scene.final_time = _format_time(_time_elapsed)
+		victory_scene.final_time   = _format_time(_time_elapsed)
+		victory_scene.final_score  = _total_score
+		victory_scene.level_index  = LevelConfig.current_level
+		victory_scene.time_seconds = _time_elapsed
 		get_tree().root.add_child(victory_scene)
 		get_tree().current_scene.queue_free()
 		get_tree().current_scene = victory_scene
