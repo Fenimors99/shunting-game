@@ -2,6 +2,8 @@ extends Node2D
 class_name VictoryScreen
 
 const GAME_SCENE := "res://scenes/GameScreen.tscn"
+# // ЗМІНЕНО: Шлях до сцени вибору рівня
+const LEVEL_SELECT_SCENE := "res://scenes/LevelSelect.tscn"
 
 var final_time:   String = "00:00"
 var final_score:  int    = 0
@@ -38,9 +40,9 @@ func _ready() -> void:
 	# Панель
 	var panel := Panel.new()
 	panel.position = Vector2((vp.x - _pw) / 2.0, (vp.y - ph) / 2.0)
-	panel.size     = Vector2(_pw, ph)
+	panel.size      = Vector2(_pw, ph)
 	var ps := StyleBoxFlat.new()
-	ps.bg_color     = Color(0.06, 0.10, 0.16, 0.98)
+	ps.bg_color      = Color(0.06, 0.10, 0.16, 0.98)
 	ps.border_color = Color(0.30, 0.55, 0.85, 0.9)
 	ps.set_border_width_all(2)
 	ps.set_corner_radius_all(16)
@@ -52,7 +54,7 @@ func _ready() -> void:
 	title.text = "Вітаємо!" if level_index == 0 else "Усі завдання виконано!"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.position = Vector2(0, 28)
-	title.size     = Vector2(_pw, 48)
+	title.size      = Vector2(_pw, 48)
 	title.add_theme_font_size_override("font_size", 34)
 	title.add_theme_color_override("font_color", Color(0.85, 0.95, 1.00))
 	panel.add_child(title)
@@ -61,7 +63,7 @@ func _ready() -> void:
 	sub.text = "Сортування завершено"
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.position = Vector2(0, 80)
-	sub.size     = Vector2(_pw, 32)
+	sub.size      = Vector2(_pw, 32)
 	sub.add_theme_font_size_override("font_size", 18)
 	sub.add_theme_color_override("font_color", Color(0.55, 0.70, 0.90, 0.8))
 	panel.add_child(sub)
@@ -76,7 +78,7 @@ func _ready() -> void:
 	time_lbl.text = result_text
 	time_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	time_lbl.position = Vector2(0, 118)
-	time_lbl.size     = Vector2(_pw, 32)
+	time_lbl.size      = Vector2(_pw, 32)
 	time_lbl.add_theme_font_size_override("font_size", 22)
 	time_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.2))
 	panel.add_child(time_lbl)
@@ -85,7 +87,7 @@ func _ready() -> void:
 	var sep := ColorRect.new()
 	sep.color    = Color(0.25, 0.40, 0.60, 0.4)
 	sep.position = Vector2(40, 162)
-	sep.size     = Vector2(_pw - 80, 1)
+	sep.size      = Vector2(_pw - 80, 1)
 	panel.add_child(sep)
 
 	# Leaderboard секція
@@ -93,14 +95,14 @@ func _ready() -> void:
 	lb_title.text = "Рейтинг"
 	lb_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lb_title.position = Vector2(0, 172)
-	lb_title.size     = Vector2(_pw, 28)
+	lb_title.size      = Vector2(_pw, 28)
 	lb_title.add_theme_font_size_override("font_size", 17)
 	lb_title.add_theme_color_override("font_color", Color(0.60, 0.78, 1.00, 0.85))
 	panel.add_child(lb_title)
 
 	_lb_container = VBoxContainer.new()
 	_lb_container.position = Vector2(24, 204)
-	_lb_container.size     = Vector2(_pw - 48, 290)
+	_lb_container.size      = Vector2(_pw - 48, 290)
 	_lb_container.add_theme_constant_override("separation", 3)
 	panel.add_child(_lb_container)
 
@@ -112,25 +114,50 @@ func _ready() -> void:
 	loading_lbl.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7, 0.7))
 	_lb_container.add_child(loading_lbl)
 
-	# Кнопка рестарту
-	var btn := Button.new()
-	btn.text = "Грати знову"
-	btn.custom_minimum_size = Vector2(220, 54)
-	btn.position = Vector2((_pw - 220) / 2.0, ph - 70)
-	var bs := StyleBoxFlat.new()
-	bs.bg_color     = Color(0.10, 0.45, 0.20, 0.95)
-	bs.border_color = Color(0.25, 0.80, 0.40)
-	bs.set_border_width_all(2)
-	bs.set_corner_radius_all(10)
-	var bsh := bs.duplicate()
-	bsh.bg_color = Color(0.15, 0.60, 0.28, 0.95)
-	btn.add_theme_stylebox_override("normal",   bs)
-	btn.add_theme_stylebox_override("hover",    bsh)
-	btn.add_theme_stylebox_override("pressed",  bsh)
-	btn.add_theme_color_override("font_color", Color.WHITE)
-	btn.add_theme_font_size_override("font_size", 22)
-	btn.pressed.connect(_on_restart)
-	panel.add_child(btn)
+	# // ЗМІНЕНО: Новий блок кнопок керування
+	# 1. Кнопка "Грати знову" (ліворуч)
+	var btn_restart := Button.new()
+	btn_restart.text = "Грати знову"
+	btn_restart.custom_minimum_size = Vector2(230, 54)
+	btn_restart.position = Vector2(40, ph - 70)
+	
+	var bs_res := StyleBoxFlat.new()
+	bs_res.bg_color      = Color(0.10, 0.45, 0.20, 0.95)
+	bs_res.border_color  = Color(0.25, 0.80, 0.40)
+	bs_res.set_border_width_all(2)
+	bs_res.set_corner_radius_all(10)
+	var bsh_res := bs_res.duplicate()
+	bsh_res.bg_color = Color(0.15, 0.60, 0.28, 0.95)
+	
+	btn_restart.add_theme_stylebox_override("normal",  bs_res)
+	btn_restart.add_theme_stylebox_override("hover",   bsh_res)
+	btn_restart.add_theme_stylebox_override("pressed", bsh_res)
+	btn_restart.add_theme_color_override("font_color", Color.WHITE)
+	btn_restart.add_theme_font_size_override("font_size", 22)
+	btn_restart.pressed.connect(_on_restart)
+	panel.add_child(btn_restart)
+
+	# 2. Кнопка "Вибір рівня" (праворуч)
+	var btn_menu := Button.new()
+	btn_menu.text = "Вибір рівня"
+	btn_menu.custom_minimum_size = Vector2(230, 54)
+	btn_menu.position = Vector2(290, ph - 70)
+	
+	var bs_menu := StyleBoxFlat.new()
+	bs_menu.bg_color      = Color(0.20, 0.35, 0.60, 0.95)
+	bs_menu.border_color  = Color(0.40, 0.65, 0.95)
+	bs_menu.set_border_width_all(2)
+	bs_menu.set_corner_radius_all(10)
+	var bsh_menu := bs_menu.duplicate()
+	bsh_menu.bg_color = Color(0.25, 0.45, 0.75, 0.95)
+	
+	btn_menu.add_theme_stylebox_override("normal",  bs_menu)
+	btn_menu.add_theme_stylebox_override("hover",   bsh_menu)
+	btn_menu.add_theme_stylebox_override("pressed", bsh_menu)
+	btn_menu.add_theme_color_override("font_color", Color.WHITE)
+	btn_menu.add_theme_font_size_override("font_size", 22)
+	btn_menu.pressed.connect(_on_level_select)
+	panel.add_child(btn_menu)
 
 	# Запускаємо submit → по сигналу зробимо fetch
 	FirebaseDB.score_submitted.connect(_on_score_submitted, CONNECT_ONE_SHOT)
@@ -144,13 +171,11 @@ func _on_score_submitted() -> void:
 
 
 func _on_score_submit_failed(_error: String) -> void:
-	# Навіть при помилці спробуємо завантажити поточний рейтинг
 	FirebaseDB.leaderboard_loaded.connect(_on_leaderboard_loaded, CONNECT_ONE_SHOT)
 	FirebaseDB.fetch_leaderboard(level_index)
 
 
 func _on_leaderboard_loaded(entries: Array) -> void:
-	# Очищаємо "Завантаження…"
 	for c in _lb_container.get_children():
 		c.queue_free()
 
@@ -214,3 +239,7 @@ func _on_leaderboard_loaded(entries: Array) -> void:
 
 func _on_restart() -> void:
 	get_tree().change_scene_to_file(GAME_SCENE)
+
+# // ЗМІНЕНО: Нова функція переходу до меню рівнів
+func _on_level_select() -> void:
+	get_tree().change_scene_to_file(LEVEL_SELECT_SCENE)
