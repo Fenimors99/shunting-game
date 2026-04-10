@@ -40,42 +40,72 @@ const TUTORIAL_SEQUENCE = [
 	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # (ЗАПАСНИЙ зелений)
 ]
 
+# Рівень 2: Потрібно ~21 вагон для завдань, ми даємо 45.
+# Стратегія: "Зелений потоп" на початку та розриви в серіях потрібних кольорів.
+# Рівень 2: Оптимізовано до ~35 вагонів
 const LEVEL2_SEQUENCE = [
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 1
-	{"type": Wagon.WagonType.BROKEN, "color": 0},                        # 2 (на рожевий)
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 3
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 4
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 5
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 6
-	{"type": Wagon.WagonType.BROKEN, "color": 0},                        # 7 (на рожевий)
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 8
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 9
-	{"type": Wagon.WagonType.BROKEN, "color": 0},                        # 10 (ЗАПАСНИЙ зламаний)
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 11
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 12
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 13 (ЗАПАСНИЙ зелений)
+	# --- БЛОК 1: Сміття та підготовка (7 вагонів) ---
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},
+	{"type": Wagon.WagonType.BROKEN, "color": 0}, {"type": Wagon.WagonType.BROKEN, "color": 0},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, 
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},
+
+	# --- БЛОК 2: Перші потрібні впереміш (13 вагонів) ---
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.BROKEN, "color": 0}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, {"type": Wagon.WagonType.BROKEN, "color": 0}, 
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW},
+
+	# --- БЛОК 3: Фінальна засипка (15 вагонів) ---
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN}, 
+	{"type": Wagon.WagonType.BROKEN, "color": 0}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, 
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, 
+	{"type": Wagon.WagonType.BROKEN, "color": 0}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE}, 
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}
 ]
 
+# Рівень 3: Потрібно ~18 вагонів, ми даємо 65.
+# Стратегія: "Заблокований старт". Перші 15 вагонів — майже повне сміття (жовті та фіолетові).
+# Враховуючи, що одна колія заблокована, гравцеві ПРИЙДЕТЬСЯ вивозити сміття назад у депо.
+# Складність збережена за рахунок концентрації сміття на початку.
+# Підвищено тиск через збільшення кількості зламаних вагонів та "фіолетового" сміття.
 const LEVEL3_SEQUENCE = [
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 1
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 2
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 3
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 4
-	{"type": Wagon.WagonType.BROKEN, "color": 0},                        # 5 (Рожевий)
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 6
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 7
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 8
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 9
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 10
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 11
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 12
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 13
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 14
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 15
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 16
-	# ЗАПАСНІ:
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 17
-	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 18
+	# --- ФАЗА 1: Сміттєва стіна (6 вагонів) ---
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE},
+
+	# --- ФАЗА 2: Ремонтний тиск (+3 нових вагона: 2 зламаних, 1 жовтий) ---
+	{"type": Wagon.WagonType.BROKEN, "color": 0}, {"type": Wagon.WagonType.BROKEN, "color": 0},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # НОВИЙ (засмічення)
+	{"type": Wagon.WagonType.BROKEN, "color": 0}, {"type": Wagon.WagonType.BROKEN, "color": 0},
+	{"type": Wagon.WagonType.BROKEN, "color": 0}, {"type": Wagon.WagonType.BROKEN, "color": 0}, # НОВІ зламані
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW},
+	{"type": Wagon.WagonType.BROKEN, "color": 0}, {"type": Wagon.WagonType.BROKEN, "color": 0},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE},
+
+	# --- ФАЗА 3: Основна видача (+3 нових вагона: 2 фіолетових, 1 синій) ---
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # НОВИЙ (для Завдання 3, але заважає зараз)
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # НОВИЙ
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE}, 
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE}, # НОВИЙ (запасний синій)
+
+	# --- ФАЗА 4: Фінал (8 вагонів) ---
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE}, {"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE}
 ]
 
 func _ready() -> void:
@@ -156,9 +186,10 @@ func _move_wagons(delta: float) -> void:
 	for i in range(start_idx, _wagons.size()):
 		_wagon_dists[i] -= step
 
-	# wagon[0] не може проїхати повз центр (d=0) якщо не заблокований
-	if not _blocked and not _wagons.is_empty() and _wagon_dists[0] < 0.0:
-		_wagon_dists[0] = 0.0
+	# wagon[0] зупиняється на пів-вагона до центру (d = WAGON_GAP/2)
+	const FRONT_STOP := Layout.WAGON_GAP * 0.5
+	if not _blocked and not _wagons.is_empty() and _wagon_dists[0] < FRONT_STOP:
+		_wagon_dists[0] = FRONT_STOP
 
 	# Дотримання мінімальної відстані між вагонами
 	for i in range(1, _wagons.size()):
@@ -183,7 +214,8 @@ func _rotation_at_dist(d: float) -> float:
 
 
 func _check_front_wagon() -> void:
-	if _wagons.is_empty() or _wagon_dists[0] > 0.0:
+	const FRONT_STOP := Layout.WAGON_GAP * 0.5
+	if _wagons.is_empty() or _wagon_dists[0] > FRONT_STOP:
 		return
 	_blocked = true
 	wagon_at_center.emit(_wagons[0])
