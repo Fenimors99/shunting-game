@@ -95,12 +95,29 @@ func _make_status_box(pos: Vector2, width: float = 130.0) -> Array:
 	return [box, lbl]
 
 func _create_repair_depot_roof() -> void:
+	# 1. Завантажуємо текстуру (змініть шлях на свій!)
+	var depot_tex := preload("res://assets/repair_depot.png") 
+	
 	var roof := Node2D.new()
 	roof.z_index = 1
+	
 	roof.connect("draw", func():
-		roof.draw_rect(Layout.REPAIR_DEPOT_RECT, Color(0.9, 0.2, 0.2, 1.0), true)
-		roof.draw_rect(Layout.REPAIR_DEPOT_RECT, Color(0.7, 0.1, 0.1, 1.0), false, 2.0)
+		# Вираховуємо новий розмір з коефіцієнтом 0.25
+		# Якщо ви хочете, щоб вона просто була маленькою:
+		var original_size := depot_tex.get_size()
+		var target_size := original_size * 0.25
+		
+		# Створюємо область малювання. 
+		# Якщо потрібно прив'язати до Layout.REPAIR_DEPOT_RECT, 
+		# використовуємо його позицію, але новий розмір:
+		var draw_rect := Rect2(Layout.REPAIR_DEPOT_RECT.position, target_size)
+		
+		# Малюємо текстуру
+		# Параметри: (Текстура, Де малювати, Чи розтягувати (true), Колір підсвітки)
+		# Червоний колір Color(1, 0, 0) зробить білі частини картинки червоними
+		roof.draw_texture_rect(depot_tex, draw_rect, false, Color(0.9, 0.2, 0.2, 1.0))
 	)
+	
 	add_child(roof)
 
 
