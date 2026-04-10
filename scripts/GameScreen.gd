@@ -485,6 +485,8 @@ func _on_start_pressed(btn: Button) -> void:
 	_create_spawn_button()
 
 func _create_spawn_button() -> void:
+	if LevelConfig.current_level == 1 or LevelConfig.current_level == 2 or LevelConfig.current_level == 3:
+		return
 	const SIZE := 62.0
 	const MARGIN := 16.0
 	var vp := get_viewport_rect().size
