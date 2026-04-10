@@ -14,8 +14,8 @@ signal repair_completed(wagons: Array)
 signal loading_completed(wagons: Array)
 signal disabled_btn_tapped(reason: String)
 
-const REPAIR_TIME  := 20.0
-const LOADING_TIME := 20.0
+const REPAIR_TIME  := 10.0
+const LOADING_TIME := 10.0
 
 var _track_wagons: Array = []      # Array[Array[Wagon]]
 var _track_reserved: Array = []    # int на колію: зарезервовані + припарковані
@@ -96,12 +96,29 @@ func _make_status_box(pos: Vector2, width: float = 130.0) -> Array:
 	return [box, lbl]
 
 func _create_repair_depot_roof() -> void:
+	# 1. Завантажуємо текстуру (змініть шлях на свій!)
+	var depot_tex := preload("res://assets/repair_depot.png") 
+	
 	var roof := Node2D.new()
 	roof.z_index = 1
+	
 	roof.connect("draw", func():
-		roof.draw_rect(Layout.REPAIR_DEPOT_RECT, Color(0.9, 0.2, 0.2, 1.0), true)
-		roof.draw_rect(Layout.REPAIR_DEPOT_RECT, Color(0.7, 0.1, 0.1, 1.0), false, 2.0)
+		# Вираховуємо новий розмір з коефіцієнтом 0.25
+		# Якщо ви хочете, щоб вона просто була маленькою:
+		var original_size := depot_tex.get_size()
+		var target_size := original_size * 0.25
+		
+		# Створюємо область малювання. 
+		# Якщо потрібно прив'язати до Layout.REPAIR_DEPOT_RECT, 
+		# використовуємо його позицію, але новий розмір:
+		var draw_rect := Rect2(Layout.REPAIR_DEPOT_RECT.position, target_size)
+		
+		# Малюємо текстуру
+		# Параметри: (Текстура, Де малювати, Чи розтягувати (true), Колір підсвітки)
+		# Червоний колір Color(1, 0, 0) зробить білі частини картинки червоними
+		roof.draw_texture_rect(depot_tex, draw_rect, false, Color(0.9, 0.2, 0.2, 1.0))
 	)
+	
 	add_child(roof)
 
 
@@ -118,6 +135,9 @@ func reserve_slot(track_index: int) -> int:
 	_track_reserved[idx] += 1
 	_refresh_entry_button(track_index)
 	_refresh_exit_button(track_index)
+	
+	queue_redraw() # <--- ДОДАНО: Перемальовуємо станцію, бо цифра збільшилась
+	
 	return slot
 
 func place_wagon(wagon: Wagon, track_index: int, slot: int) -> void:
@@ -133,6 +153,9 @@ func pop_all_wagons(track_index: int) -> Array:
 	_track_reserved[idx] = 0
 	_refresh_entry_button(track_index)
 	_refresh_exit_button(track_index)
+	
+	queue_redraw() # <--- ДОДАНО: Перемальовуємо станцію, бо цифра стала 0
+	
 	return wagons
 
 func is_track_full(track_index: int) -> bool:
@@ -330,12 +353,28 @@ func _draw_tracks() -> void:
 		draw_line(Vector2(start_x, y - 3), Vector2(end_x, y - 3), color, 2.0)
 		draw_line(Vector2(start_x, y + 3), Vector2(end_x, y + 3), color, 2.0)
 
-		# Підпис
+		# Підпис назви колії (ліворуч)
 		draw_string(font,
 			Vector2(start_x + 10, y - 30),
 			labels[i],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 15,
 			Color(0.65, 0.75, 0.9, 0.75)
+		)
+
+		# --- ДОДАНО: Динамічний лічильник місткості (праворуч) ---
+		# Беремо зарезервовані місця (включає вагони, що вже стоять, і ті, що ще їдуть на колію)
+		var current = _track_reserved[i] 
+		var max_cap = Layout.get_track_capacity(track_idx)
+		var cap_text = "%d / %d" % [current, max_cap]
+		
+		# Рахуємо ширину тексту, щоб рівно вирівняти його по правому краю рейок
+		var text_width = font.get_string_size(cap_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		
+		draw_string(font,
+			Vector2(end_x - text_width - 10, y - 30), # Відступаємо 10 пікселів від правого краю
+			cap_text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 15,
+			Color(1.0, 0.85, 0.4, 0.9) # Світло-жовтий колір для гарного контрасту
 		)
 
 func _draw_junction_line() -> void:
@@ -486,14 +525,27 @@ func _create_entry_buttons() -> void:
 		var y := Layout.get_track_y(i)
 		var bounds := _get_track_bounds(i)
 		var btn := Button.new()
-		btn.text = "+"
+		
+		# --- НОВИЙ БЛОК ДЛЯ 3 РІВНЯ ---
+		if LevelConfig.current_level == 3 and i == 2:
+			btn.text = "STOP"
+			btn.disabled = true
+			# Стиль самої кнопки (червоний)
+			btn.add_theme_stylebox_override("disabled", _make_circle_style(Color(0.8, 0.2, 0.2, 0.8))) 
+	
+			# --- ДОДАЄМО ЦЕ: Робимо текст білим для заблокованого стану ---
+			btn.add_theme_color_override("font_disabled_color", Color.WHITE)
+		else:
+			btn.text = "+"
+			btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.1, 0.3, 0.7, 0.9)))
+		# ------------------------------
+
 		btn.custom_minimum_size = Vector2(52, 52)
-		# Зміщуємо кнопку паралельно межі шестикутника
 		btn.position = Vector2(bounds.x - 80, y - 26)
-		btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.1, 0.3, 0.7, 0.9)))
 		btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.2, 0.5, 1.0)))
 		btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.05, 0.2, 0.6)))
 		btn.add_theme_color_override("font_color", Color.WHITE)
+		
 		var idx := i
 		btn.pressed.connect(func(): track_entry_tapped.emit(idx))
 		add_child(btn)
@@ -516,6 +568,18 @@ func clear_entry_filter() -> void:
 
 func _refresh_entry_button(track_index: int) -> void:
 	var btn: Button = _entry_buttons[track_index - 1]
+	
+	# 1. ПЕРЕВІРКА ДЛЯ 3 РІВНЯ (виконується найпершою)
+	if LevelConfig.current_level == 3 and track_index == 2:
+		btn.text = "STOP"
+		btn.disabled = true
+		# Встановлюємо червоний колір для круглої кнопки
+		btn.add_theme_stylebox_override("disabled", _make_circle_style(Color(0.8, 0.2, 0.2, 0.9)))
+		# Робимо текст білим (щоб не був сірим через disabled)
+		btn.add_theme_color_override("font_disabled_color", Color.WHITE)
+		return # ПЕРЕРИВАЄМО функцію тут, інший код нижче не виконається
+	
+	# 2. ВАША СТАНДАРТНА ЛОГІКА (виконається тільки якщо це не 2-га колія 3-го рівня)
 	if is_track_full(track_index):
 		btn.text = ""
 		btn.disabled = true

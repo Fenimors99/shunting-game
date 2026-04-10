@@ -20,12 +20,81 @@ var _arc_pts: PackedVector2Array
 var _arc_cumul: Array[float]
 var _arc_length: float
 
+var _tutorial_idx: int = 0
+const TUTORIAL_SEQUENCE = [
+	# --- ЗАВДАННЯ 1: 2 синіх, 1 зелений (Просте сортування) ---
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	
+	# --- ЗАВДАННЯ 2: 1 Рожевий (Ремонт + Завантаження) ---
+	# Цей вагон виїде ЧЕРВОНИМ. Гравець має:
+	# 1. Відправити на колію 7 (стане БІЛИМ після ремонту)
+	# 2. Відправити на колію 1 (стане РОЖЕВИМ після завантаження)
+	{"type": Wagon.WagonType.BROKEN, "color": 0}, 
+	
+	# --- ЗАВДАННЯ 3: 1 Рожевий, 1 Жовтий, 1 Синій (Комбіноване) ---
+	{"type": Wagon.WagonType.BROKEN, "color": 0}, # Знову червоний для перетворення в рожевий
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # (ЗАПАСНИЙ зелений)
+]
+
+const LEVEL2_SEQUENCE = [
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 1
+	{"type": Wagon.WagonType.BROKEN, "color": 0},                        # 2 (на рожевий)
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 3
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 4
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 5
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 6
+	{"type": Wagon.WagonType.BROKEN, "color": 0},                        # 7 (на рожевий)
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 8
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 9
+	{"type": Wagon.WagonType.BROKEN, "color": 0},                        # 10 (ЗАПАСНИЙ зламаний)
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 11
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 12
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 13 (ЗАПАСНИЙ зелений)
+]
+
+const LEVEL3_SEQUENCE = [
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 1
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 2
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 3
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 4
+	{"type": Wagon.WagonType.BROKEN, "color": 0},                        # 5 (Рожевий)
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 6
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 7
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 8
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 9
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 10
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 11
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 12
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 13
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 14
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 15
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 16
+	# ЗАПАСНІ:
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 17
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 18
+]
 
 func _ready() -> void:
 	_precompute_arc()
-	for i in Layout.QUEUE_VISIBLE_LIMIT:
-		_spawn_wagon(false)
-
+	
+	if LevelConfig.current_level == 1:
+		for i in TUTORIAL_SEQUENCE.size():
+			_spawn_wagon(false)
+	elif LevelConfig.current_level == 2:
+		for i in LEVEL2_SEQUENCE.size():
+			_spawn_wagon(false)
+	elif LevelConfig.current_level == 3:
+		for i in LEVEL3_SEQUENCE.size():
+			_spawn_wagon(false)
+	else:
+		for i in Layout.QUEUE_VISIBLE_LIMIT:
+			_spawn_wagon(false)
+			
+			
 
 func _precompute_arc() -> void:
 	var arc := Layout.get_entry_arc()
@@ -139,8 +208,36 @@ func is_blocked() -> bool:
 
 func _create_random_wagon() -> Wagon:
 	var w: Wagon = WAGON_SCENE.instantiate()
+	w.rotation = PI
+	
+	var sequence = []
+	if LevelConfig.current_level == 1:
+		sequence = TUTORIAL_SEQUENCE
+	elif LevelConfig.current_level == 2:
+		sequence = LEVEL2_SEQUENCE
+	elif LevelConfig.current_level == 3:
+		sequence = LEVEL3_SEQUENCE
+
+	# Якщо це рівень з фіксованою чергою
+	if sequence.size() > 0:
+		if _tutorial_idx < sequence.size():
+			var data = sequence[_tutorial_idx]
+			w.wagon_type = data["type"]
+			if w.wagon_type == Wagon.WagonType.NORMAL:
+				w.color_id = data["color"]
+			_tutorial_idx += 1
+		else:
+			# ЗАПОБІЖНИК: якщо фіксовані вагони закінчилися
+			var roll := randi() % 4
+			if roll == 0:
+				w.wagon_type = Wagon.WagonType.BROKEN
+			else:
+				w.wagon_type = Wagon.WagonType.NORMAL
+				w.color_id = randi() % Wagon.WagonColorId.size() as Wagon.WagonColorId
+		return w
+				
+	# Логіка для нескінченного режиму (0)
 	if LevelConfig.current_level == 0:
-		# Нескінченний режим: Red 7%, White 13%, Blue/Green/Yellow/Purple по 20%
 		var roll := randi() % 100
 		if roll < 7:
 			w.wagon_type = Wagon.WagonType.BROKEN
@@ -158,8 +255,8 @@ func _create_random_wagon() -> Wagon:
 		else:
 			w.wagon_type = Wagon.WagonType.NORMAL
 			w.color_id = Wagon.WagonColorId.PURPLE
+	# Логіка для інших статичних рівнів (3+)
 	else:
-		# Статичні рівні: оригінальна логіка спавну
 		var roll := randi() % 5
 		if roll == 0:
 			w.wagon_type = Wagon.WagonType.BROKEN
@@ -168,7 +265,7 @@ func _create_random_wagon() -> Wagon:
 		else:
 			w.wagon_type = Wagon.WagonType.NORMAL
 			w.color_id = randi() % Wagon.WagonColorId.size() as Wagon.WagonColorId
-	w.rotation = PI
+			
 	return w
 
 
