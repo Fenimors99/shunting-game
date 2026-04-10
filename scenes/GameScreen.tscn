@@ -2,13 +2,24 @@
 
 [ext_resource type="Script" uid="uid://cuu05uueu0bp0" path="res://scripts/GameScreen.gd" id="1_gj13t"]
 [ext_resource type="Script" uid="uid://dabqi3bba2q0f" path="res://scripts/Queue.gd" id="1_o75v1"]
+[ext_resource type="Script" uid="uid://cvaertsdcvmiv" path="res://scripts/GrassBackground.gd" id="2_5m38y"]
+[ext_resource type="Texture2D" uid="uid://dfjys3dr3luhs" path="res://assets/grass_tile_1_1.png" id="3_1iofb"]
 [ext_resource type="Script" uid="uid://dbdlg3ncd13ym" path="res://scripts/Station.gd" id="3_osnef"]
 [ext_resource type="Script" uid="uid://bvyj1bi4hiflw" path="res://scripts/LocoDepot.gd" id="4_depot"]
+[ext_resource type="Texture2D" uid="uid://b3yy2scjvqnqi" path="res://assets/grass_tile_2_1.png" id="4_mfff6"]
+[ext_resource type="Texture2D" uid="uid://dfd04sawssf2m" path="res://assets/grass_tile_3_1.png" id="5_itox2"]
 [ext_resource type="Script" uid="uid://cw55ggxgro4fk" path="res://scripts/TaskManager.gd" id="5_taskmgr"]
 [ext_resource type="Script" uid="uid://c5sghcmm5bhsy" path="res://scripts/TaskPanel.gd" id="6_taskpanel"]
 
 [node name="GameScreen" type="Node2D" unique_id=184605156]
 script = ExtResource("1_gj13t")
+
+[node name="GrassBackground" type="Node2D" parent="." unique_id=1203293473]
+script = ExtResource("2_5m38y")
+map_width = 128
+base_tile = ExtResource("3_1iofb")
+detail_tile_1 = ExtResource("4_mfff6")
+detail_tile_2 = ExtResource("5_itox2")
 
 [node name="Station" type="Node2D" parent="." unique_id=349112496]
 script = ExtResource("3_osnef")

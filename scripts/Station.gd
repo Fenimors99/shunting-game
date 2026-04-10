@@ -38,6 +38,7 @@ var _repair_btn:     Button = null
 var _loading_wagons: Array  = []
 var _loading_timer:  float  = 0.0
 var _loading_btn:    Button = null
+var _traffic_lights: Array = []   # Array[TrafficLight]
 
 var _repair_status_box:    Node2D = null
 var _repair_status_label:  Label  = null
@@ -60,6 +61,7 @@ func _ready() -> void:
 	_create_entry_buttons()
 	_create_exit_buttons()
 	_create_choice_containers()
+	_create_traffic_lights()
 	_create_repair_depot_roof()
 	_create_status_boxes()
 
@@ -757,3 +759,48 @@ func _make_circle_style(color: Color) -> StyleBoxFlat:
 	s.set_border_width_all(2)
 	s.set_corner_radius_all(26)
 	return s
+
+func _create_traffic_lights() -> void:
+	_traffic_lights.resize(Layout.TRACK_COUNT)
+
+	for i in range(1, Layout.TRACK_COUNT + 1):
+		var y := Layout.get_track_y(i)
+		var bounds := _get_track_bounds(i)
+
+		var light := TrafficLight.new()
+		light.housing_texture = preload("res://assets/traffic_light_3.png")
+
+		# Делаем светофор примерно в 2 раза меньше
+		light.sprite_scale = Vector2(0.25, 0.25)
+		light.lamp_radius = 40.0
+
+		# Ставим правее и чуть выше центра колеи
+		var x_offset := 65.0
+
+		if i == 1:
+			x_offset = 14.0
+		elif i == 2:
+			x_offset = 14.0
+		elif i == 3:
+			x_offset = 14.0
+		elif i == 4:
+			x_offset = 14.0
+
+		light.position = Vector2(bounds.y + x_offset, y - 61)	
+		light.z_index = 5
+		light.set_red()
+
+		add_child(light)
+		_traffic_lights[i - 1] = light
+
+
+func flash_track_green(track_index: int, duration: float = 0.6) -> void:
+	var light: TrafficLight = _traffic_lights[track_index - 1]
+	if light != null:
+		light.flash_green(duration)
+
+
+func set_track_red(track_index: int) -> void:
+	var light: TrafficLight = _traffic_lights[track_index - 1]
+	if light != null:
+		light.set_red()
