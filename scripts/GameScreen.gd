@@ -572,7 +572,7 @@ func _animate_along_path(wagon: Wagon, path: PackedVector2Array, on_done: Callab
 	tween.tween_callback(on_done)
 
 func _on_track_exit_tapped(track_index: int) -> void:
-	station.flash_track_green(track_index, 1)
+	station.flash_track_green(track_index, 2)
 	if not loco_depot.use_locomotive():
 		return
 	var wagons: Array = station.pop_all_wagons(track_index)
@@ -584,7 +584,7 @@ func _on_track_exit_tapped(track_index: int) -> void:
 		_animate_exit(wagons, track_index)
 
 func _on_track_exit_choice(track_index: int, submit: bool) -> void:
-	station.flash_track_green(track_index, 1)
+	station.flash_track_green(track_index, 2)
 	if not loco_depot.use_locomotive():
 		return
 	var wagons: Array = station.pop_all_wagons(track_index)
