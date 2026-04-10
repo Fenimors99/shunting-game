@@ -773,18 +773,16 @@ func _create_traffic_lights() -> void:
 		light.lamp_radius = 40.0
 
 		# Ставим правее и чуть выше центра колеи
-		var x_offset := 65.0
+		var x_offset := 10
 
 		if i == 1:
-			x_offset = 14.0
+			x_offset = 67
 		elif i == 2:
-			x_offset = 14.0
+			x_offset = 67
 		elif i == 3:
-			x_offset = 14.0
-		elif i == 4:
-			x_offset = 14.0
+			x_offset = 67
 
-		light.position = Vector2(bounds.y + x_offset, y - 61)	
+		light.position = Vector2(bounds.y + x_offset, y + 29)	
 		light.z_index = 5
 		light.set_red()
 
