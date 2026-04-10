@@ -2,6 +2,7 @@ extends Node2D
 class_name VictoryScreen
 
 const GAME_SCENE := "res://scenes/GameScreen.tscn"
+const LEVEL_SELECT_SCENE := "res://scenes/LevelSelect.tscn"
 
 var final_time:   String = "00:00"
 var final_score:  int    = 0
@@ -40,7 +41,7 @@ func _ready() -> void:
 	panel.position = Vector2((vp.x - _pw) / 2.0, (vp.y - ph) / 2.0)
 	panel.size     = Vector2(_pw, ph)
 	var ps := StyleBoxFlat.new()
-	ps.bg_color     = Color(0.06, 0.10, 0.16, 0.98)
+	ps.bg_color      = Color(0.06, 0.10, 0.16, 0.98)
 	ps.border_color = Color(0.30, 0.55, 0.85, 0.9)
 	ps.set_border_width_all(2)
 	ps.set_corner_radius_all(16)
@@ -112,25 +113,45 @@ func _ready() -> void:
 	loading_lbl.add_theme_color_override("font_color", Color(0.5, 0.6, 0.7, 0.7))
 	_lb_container.add_child(loading_lbl)
 
-	# Кнопка рестарту
-	var btn := Button.new()
-	btn.text = "Грати знову"
-	btn.custom_minimum_size = Vector2(220, 54)
-	btn.position = Vector2((_pw - 220) / 2.0, ph - 70)
-	var bs := StyleBoxFlat.new()
-	bs.bg_color     = Color(0.10, 0.45, 0.20, 0.95)
-	bs.border_color = Color(0.25, 0.80, 0.40)
-	bs.set_border_width_all(2)
-	bs.set_corner_radius_all(10)
-	var bsh := bs.duplicate()
-	bsh.bg_color = Color(0.15, 0.60, 0.28, 0.95)
-	btn.add_theme_stylebox_override("normal",   bs)
-	btn.add_theme_stylebox_override("hover",    bsh)
-	btn.add_theme_stylebox_override("pressed",  bsh)
-	btn.add_theme_color_override("font_color", Color.WHITE)
-	btn.add_theme_font_size_override("font_size", 22)
-	btn.pressed.connect(_on_restart)
-	panel.add_child(btn)
+	# Кнопка "Грати знову" (ліворуч)
+	var btn_restart := Button.new()
+	btn_restart.text = "Грати знову"
+	btn_restart.custom_minimum_size = Vector2(230, 54)
+	btn_restart.position = Vector2(40, ph - 70)
+	var bs_res := StyleBoxFlat.new()
+	bs_res.bg_color     = Color(0.10, 0.45, 0.20, 0.95)
+	bs_res.border_color = Color(0.25, 0.80, 0.40)
+	bs_res.set_border_width_all(2)
+	bs_res.set_corner_radius_all(10)
+	var bsh_res := bs_res.duplicate()
+	bsh_res.bg_color = Color(0.15, 0.60, 0.28, 0.95)
+	btn_restart.add_theme_stylebox_override("normal",  bs_res)
+	btn_restart.add_theme_stylebox_override("hover",   bsh_res)
+	btn_restart.add_theme_stylebox_override("pressed", bsh_res)
+	btn_restart.add_theme_color_override("font_color", Color.WHITE)
+	btn_restart.add_theme_font_size_override("font_size", 22)
+	btn_restart.pressed.connect(_on_restart)
+	panel.add_child(btn_restart)
+
+	# Кнопка "Вибір рівня" (праворуч)
+	var btn_menu := Button.new()
+	btn_menu.text = "Вибір рівня"
+	btn_menu.custom_minimum_size = Vector2(230, 54)
+	btn_menu.position = Vector2(290, ph - 70)
+	var bs_menu := StyleBoxFlat.new()
+	bs_menu.bg_color     = Color(0.20, 0.35, 0.60, 0.95)
+	bs_menu.border_color = Color(0.40, 0.65, 0.95)
+	bs_menu.set_border_width_all(2)
+	bs_menu.set_corner_radius_all(10)
+	var bsh_menu := bs_menu.duplicate()
+	bsh_menu.bg_color = Color(0.25, 0.45, 0.75, 0.95)
+	btn_menu.add_theme_stylebox_override("normal",  bs_menu)
+	btn_menu.add_theme_stylebox_override("hover",   bsh_menu)
+	btn_menu.add_theme_stylebox_override("pressed", bsh_menu)
+	btn_menu.add_theme_color_override("font_color", Color.WHITE)
+	btn_menu.add_theme_font_size_override("font_size", 22)
+	btn_menu.pressed.connect(_on_level_select)
+	panel.add_child(btn_menu)
 
 	# Запускаємо submit → по сигналу зробимо fetch
 	FirebaseDB.score_submitted.connect(_on_score_submitted, CONNECT_ONE_SHOT)
@@ -214,3 +235,7 @@ func _on_leaderboard_loaded(entries: Array) -> void:
 
 func _on_restart() -> void:
 	get_tree().change_scene_to_file(GAME_SCENE)
+
+
+func _on_level_select() -> void:
+	get_tree().change_scene_to_file(LEVEL_SELECT_SCENE)
