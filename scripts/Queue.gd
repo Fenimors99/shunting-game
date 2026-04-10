@@ -56,6 +56,28 @@ const LEVEL2_SEQUENCE = [
 	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 13 (ЗАПАСНИЙ зелений)
 ]
 
+const LEVEL3_SEQUENCE = [
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 1
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 2
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 3
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 4
+	{"type": Wagon.WagonType.BROKEN, "color": 0},                        # 5 (Рожевий)
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 6
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 7
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 8
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 9
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 10
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 11
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 12
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 13
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.PURPLE}, # 14
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 15
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.YELLOW}, # 16
+	# ЗАПАСНІ:
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.BLUE},   # 17
+	{"type": Wagon.WagonType.NORMAL, "color": Wagon.WagonColorId.GREEN},  # 18
+]
+
 func _ready() -> void:
 	_precompute_arc()
 	
@@ -64,6 +86,9 @@ func _ready() -> void:
 			_spawn_wagon(false)
 	elif LevelConfig.current_level == 2:
 		for i in LEVEL2_SEQUENCE.size():
+			_spawn_wagon(false)
+	elif LevelConfig.current_level == 3:
+		for i in LEVEL3_SEQUENCE.size():
 			_spawn_wagon(false)
 	else:
 		for i in Layout.QUEUE_VISIBLE_LIMIT:
@@ -190,6 +215,8 @@ func _create_random_wagon() -> Wagon:
 		sequence = TUTORIAL_SEQUENCE
 	elif LevelConfig.current_level == 2:
 		sequence = LEVEL2_SEQUENCE
+	elif LevelConfig.current_level == 3:
+		sequence = LEVEL3_SEQUENCE
 
 	# Якщо це рівень з фіксованою чергою
 	if sequence.size() > 0:

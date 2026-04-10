@@ -483,14 +483,27 @@ func _create_entry_buttons() -> void:
 		var y := Layout.get_track_y(i)
 		var bounds := _get_track_bounds(i)
 		var btn := Button.new()
-		btn.text = "+"
+		
+		# --- НОВИЙ БЛОК ДЛЯ 3 РІВНЯ ---
+		if LevelConfig.current_level == 3 and i == 2:
+			btn.text = "STOP"
+			btn.disabled = true
+			# Стиль самої кнопки (червоний)
+			btn.add_theme_stylebox_override("disabled", _make_circle_style(Color(0.8, 0.2, 0.2, 0.8))) 
+	
+			# --- ДОДАЄМО ЦЕ: Робимо текст білим для заблокованого стану ---
+			btn.add_theme_color_override("font_disabled_color", Color.WHITE)
+		else:
+			btn.text = "+"
+			btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.1, 0.3, 0.7, 0.9)))
+		# ------------------------------
+
 		btn.custom_minimum_size = Vector2(52, 52)
-		# Зміщуємо кнопку паралельно межі шестикутника
 		btn.position = Vector2(bounds.x - 80, y - 26)
-		btn.add_theme_stylebox_override("normal",  _make_circle_style(Color(0.1, 0.3, 0.7, 0.9)))
 		btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.2, 0.5, 1.0)))
 		btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.05, 0.2, 0.6)))
 		btn.add_theme_color_override("font_color", Color.WHITE)
+		
 		var idx := i
 		btn.pressed.connect(func(): track_entry_tapped.emit(idx))
 		add_child(btn)
@@ -509,6 +522,18 @@ func clear_entry_filter() -> void:
 
 func _refresh_entry_button(track_index: int) -> void:
 	var btn: Button = _entry_buttons[track_index - 1]
+	
+	# 1. ПЕРЕВІРКА ДЛЯ 3 РІВНЯ (виконується найпершою)
+	if LevelConfig.current_level == 3 and track_index == 2:
+		btn.text = "STOP"
+		btn.disabled = true
+		# Встановлюємо червоний колір для круглої кнопки
+		btn.add_theme_stylebox_override("disabled", _make_circle_style(Color(0.8, 0.2, 0.2, 0.9)))
+		# Робимо текст білим (щоб не був сірим через disabled)
+		btn.add_theme_color_override("font_disabled_color", Color.WHITE)
+		return # ПЕРЕРИВАЄМО функцію тут, інший код нижче не виконається
+	
+	# 2. ВАША СТАНДАРТНА ЛОГІКА (виконається тільки якщо це не 2-га колія 3-го рівня)
 	if is_track_full(track_index):
 		btn.text = ""
 		btn.disabled = true

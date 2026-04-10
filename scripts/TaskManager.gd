@@ -28,10 +28,10 @@ const STATIC_TASKS: Array = [
 	],
 	# Рівень 3
 	[
-		{ Wagon.WagonColorId.PURPLE: 3, Wagon.WagonColorId.BLUE: 2 },
-		{ Wagon.WagonColorId.GREEN: 4, Wagon.WagonColorId.YELLOW: 3 },
-		{ Wagon.WagonColorId.BLUE: 3, Wagon.WagonColorId.GREEN: 2, Wagon.WagonColorId.PURPLE: 1 },
-		{ Wagon.WagonColorId.YELLOW: 4, Wagon.WagonColorId.BLUE: 1 },
+		# Рівень 3 (ОБМЕЖЕНИЙ ПРОСТІР - Колія 2 заблокована)
+		{ Wagon.WagonColorId.BLUE: 3, Wagon.WagonColorId.PURPLE: 2 },            # Завдання 1
+		{ 4: 1, Wagon.WagonColorId.YELLOW: 2, Wagon.WagonColorId.GREEN: 2 },    # Завдання 2 (Рожевий + Жовті + Зелені)
+		{ Wagon.WagonColorId.PURPLE: 2, Wagon.WagonColorId.BLUE: 2, Wagon.WagonColorId.YELLOW: 2 }, # Завдання 3 (Мікс)
 	],
 ]
 
