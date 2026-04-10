@@ -134,6 +134,9 @@ func reserve_slot(track_index: int) -> int:
 	_track_reserved[idx] += 1
 	_refresh_entry_button(track_index)
 	_refresh_exit_button(track_index)
+	
+	queue_redraw() # <--- ДОДАНО: Перемальовуємо станцію, бо цифра збільшилась
+	
 	return slot
 
 func place_wagon(wagon: Wagon, track_index: int, slot: int) -> void:
@@ -149,6 +152,9 @@ func pop_all_wagons(track_index: int) -> Array:
 	_track_reserved[idx] = 0
 	_refresh_entry_button(track_index)
 	_refresh_exit_button(track_index)
+	
+	queue_redraw() # <--- ДОДАНО: Перемальовуємо станцію, бо цифра стала 0
+	
 	return wagons
 
 func is_track_full(track_index: int) -> bool:
@@ -344,12 +350,28 @@ func _draw_tracks() -> void:
 		draw_line(Vector2(start_x, y - 3), Vector2(end_x, y - 3), color, 2.0)
 		draw_line(Vector2(start_x, y + 3), Vector2(end_x, y + 3), color, 2.0)
 
-		# Підпис
+		# Підпис назви колії (ліворуч)
 		draw_string(font,
 			Vector2(start_x + 10, y - 30),
 			labels[i],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 15,
 			Color(0.65, 0.75, 0.9, 0.75)
+		)
+
+		# --- ДОДАНО: Динамічний лічильник місткості (праворуч) ---
+		# Беремо зарезервовані місця (включає вагони, що вже стоять, і ті, що ще їдуть на колію)
+		var current = _track_reserved[i] 
+		var max_cap = Layout.get_track_capacity(track_idx)
+		var cap_text = "%d / %d" % [current, max_cap]
+		
+		# Рахуємо ширину тексту, щоб рівно вирівняти його по правому краю рейок
+		var text_width = font.get_string_size(cap_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		
+		draw_string(font,
+			Vector2(end_x - text_width - 10, y - 30), # Відступаємо 10 пікселів від правого краю
+			cap_text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 15,
+			Color(1.0, 0.85, 0.4, 0.9) # Світло-жовтий колір для гарного контрасту
 		)
 
 func _draw_junction_line() -> void:
