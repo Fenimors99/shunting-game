@@ -2,10 +2,15 @@ extends Node2D
 class_name Station
 
 const COLOR_TRACK_NORMAL  := Color(0.4, 0.5, 0.7, 0.6)
-const COLOR_TRACK_CARGO   := Color(0.9, 0.7, 0.1, 0.8)   # Колія 1
+const COLOR_TRACK_CARGO   := Color(1.0, 1.0, 1.0, 0.8)   # Колія 1
 const COLOR_TRACK_REPAIR  := Color(0.9, 0.2, 0.2, 0.8)   # Колія 7
 const COLOR_BG            := Color(0.08, 0.12, 0.18, 0.9)
 const COLOR_BORDER        := Color(0.3, 0.4, 0.55, 0.5)
+
+const SLEEPER_COLOR   := Color(0.45, 0.52, 0.62, 0.85)
+const SLEEPER_SPACING := 22.0
+const SLEEPER_HALF    := 6.0
+const SLEEPER_W       := 2.5
 
 signal track_entry_tapped(track_index: int)
 signal track_exit_tapped(track_index: int)
@@ -342,16 +347,8 @@ func _draw_tracks() -> void:
 		if i == 0:   color = COLOR_TRACK_CARGO
 		elif i == 6: color = COLOR_TRACK_REPAIR
 
-		# Шпали
-		var sleeper_color := Color(0.28, 0.32, 0.38, 0.55)
-		var sx: float = start_x
-		while sx <= end_x:
-			draw_line(Vector2(sx, y - 5), Vector2(sx, y + 5), sleeper_color, 2.5)
-			sx += 24.0
-
-		# Рейки (дві нитки), підрізані під шестикутник
-		draw_line(Vector2(start_x, y - 3), Vector2(end_x, y - 3), color, 2.0)
-		draw_line(Vector2(start_x, y + 3), Vector2(end_x, y + 3), color, 2.0)
+		# Рейки + шпали
+		_draw_rail_segment(Vector2(start_x, y), Vector2(end_x, y), color)
 
 		# Підпис назви колії (ліворуч)
 		draw_string(font,
@@ -391,21 +388,18 @@ func _draw_junction_line() -> void:
 	# 2. Дуга від черги до центру (колія 4)
 	_draw_curved_rail(Layout.get_entry_arc(), rail_color)
 
-	# 3. Верхня гілка: центр (колія 4) → колія 3 → 2 → 1
-	for i in range(Layout.CENTER_TRACK - 1, 0, -1):
-		_draw_rail_segment(
-			Vector2(Layout.get_dist_rail_x(i + 1), Layout.get_track_y(i + 1)),
-			Vector2(Layout.get_dist_rail_x(i),     Layout.get_track_y(i)),
-			thin_color
-		)
+	# 3+4. Розподільча рейка: одна плавна полілінія від колії 1 до 7
+	var dist_pts := PackedVector2Array()
+	for i in range(1, Layout.TRACK_COUNT + 1):
+		dist_pts.append(Vector2(Layout.get_dist_rail_x(i), Layout.get_track_y(i)))
+	_draw_curved_rail(dist_pts, thin_color)
 
-	# 4. Нижня гілка: центр (колія 4) → колія 5 → 6 → 7
-	for i in range(Layout.CENTER_TRACK + 1, Layout.TRACK_COUNT + 1):
-		_draw_rail_segment(
-			Vector2(Layout.get_dist_rail_x(i - 1), Layout.get_track_y(i - 1)),
-			Vector2(Layout.get_dist_rail_x(i),     Layout.get_track_y(i)),
-			thin_color
-		)
+	# 5. Горизонтальні з'єднання: від точки розподільчої рейки до лівого краю кожної колії
+	for i in range(1, Layout.TRACK_COUNT + 1):
+		var dx     := Layout.get_dist_rail_x(i)
+		var ty     := Layout.get_track_y(i)
+		var bounds := _get_track_bounds(i)
+		_draw_rail_segment(Vector2(dx, ty), Vector2(bounds.x, ty), thin_color)
 
 
 
@@ -428,28 +422,46 @@ func _draw_curved_rail(pts: PackedVector2Array, color: Color) -> void:
 	draw_polyline(pts_a, color, 2.0)
 	draw_polyline(pts_b, color, 2.0)
 
+	# Шпали вздовж кривої
+	var total_len := 0.0
+	for i in range(1, pts.size()):
+		total_len += pts[i - 1].distance_to(pts[i])
+
+	var seg     := 0
+	var seg_acc := 0.0
+	var sdist   := SLEEPER_SPACING * 0.5
+
+	while sdist < total_len:
+		while seg < pts.size() - 1:
+			var slen := pts[seg].distance_to(pts[seg + 1])
+			if seg_acc + slen >= sdist:
+				break
+			seg_acc += slen
+			seg     += 1
+		if seg >= pts.size() - 1:
+			break
+		var slen  := pts[seg].distance_to(pts[seg + 1])
+		var t     := (sdist - seg_acc) / slen
+		var pos   := pts[seg].lerp(pts[seg + 1], t)
+		var sdir  := (pts[seg + 1] - pts[seg]).normalized()
+		var snorm := Vector2(-sdir.y, sdir.x)
+		draw_line(pos - snorm * SLEEPER_HALF, pos + snorm * SLEEPER_HALF, SLEEPER_COLOR, SLEEPER_W)
+		sdist += SLEEPER_SPACING
+
 
 func _draw_rail_segment(from: Vector2, to: Vector2, color: Color) -> void:
-	var dir := (to - from).normalized()
+	var dir    := (to - from).normalized()
 	var normal := Vector2(-dir.y, dir.x)
-	var rail_offset := 3.0
 
-	draw_line(from + normal * rail_offset, to + normal * rail_offset, color, 2.0)
-	draw_line(from - normal * rail_offset, to - normal * rail_offset, color, 2.0)
+	draw_line(from + normal * 3.0, to + normal * 3.0, color, 2.0)
+	draw_line(from - normal * 3.0, to - normal * 3.0, color, 2.0)
 
-	var sleeper_color := Color(0.778, 0.825, 0.947, 0.608) 
 	var length := from.distance_to(to)
-	var step := 20.0
-	var dist := 7.0
-
+	var dist   := 8.0
 	while dist <= length - 5.0:
-		var t := dist / length
-		var pos := from.lerp(to, t)
-		var angle := dir.angle()
-		draw_set_transform(pos, angle, Vector2.ONE)
-		draw_rect(Rect2(-9, -3, 2, 8), sleeper_color)
-		draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
-		dist += step
+		var pos := from.lerp(to, dist / length)
+		draw_line(pos - normal * SLEEPER_HALF, pos + normal * SLEEPER_HALF, SLEEPER_COLOR, SLEEPER_W)
+		dist += SLEEPER_SPACING
 		
 func _draw_exit_rails() -> void:
 	var rail_color := Color(0.5, 0.6, 0.75, 0.5)
@@ -465,21 +477,11 @@ func _draw_exit_rails() -> void:
 			rail_color
 		)
 
-	# 2. Збірна рейка: верхня гілка (колія 3→2→1)
-	for i in range(Layout.CENTER_TRACK - 1, 0, -1):
-		_draw_rail_segment(
-			Vector2(Layout.get_exit_rail_x(i + 1), Layout.get_track_y(i + 1)),
-			Vector2(Layout.get_exit_rail_x(i),     Layout.get_track_y(i)),
-			thin_color
-		)
-
-	# 3. Збірна рейка: нижня гілка (колія 5→6→7)
-	for i in range(Layout.CENTER_TRACK + 1, Layout.TRACK_COUNT + 1):
-		_draw_rail_segment(
-			Vector2(Layout.get_exit_rail_x(i - 1), Layout.get_track_y(i - 1)),
-			Vector2(Layout.get_exit_rail_x(i),     Layout.get_track_y(i)),
-			thin_color
-		)
+	# 2+3. Збірна рейка виходу: одна плавна полілінія від колії 1 до 7
+	var exit_pts := PackedVector2Array()
+	for i in range(1, Layout.TRACK_COUNT + 1):
+		exit_pts.append(Vector2(Layout.get_exit_rail_x(i), Layout.get_track_y(i)))
+	_draw_curved_rail(exit_pts, thin_color)
 
 	# 3.4. Вихід колії 1: дуга право→вгору + вертикаль за екран
 	var arc1 := Layout.get_track1_exit_arc()
@@ -541,7 +543,7 @@ func _create_entry_buttons() -> void:
 		# ------------------------------
 
 		btn.custom_minimum_size = Vector2(52, 52)
-		btn.position = Vector2(bounds.x - 80, y - 26)
+		btn.position = Vector2(bounds.x - 90, y - 26)
 		btn.add_theme_stylebox_override("hover",   _make_circle_style(Color(0.2, 0.5, 1.0)))
 		btn.add_theme_stylebox_override("pressed", _make_circle_style(Color(0.05, 0.2, 0.6)))
 		btn.add_theme_color_override("font_color", Color.WHITE)

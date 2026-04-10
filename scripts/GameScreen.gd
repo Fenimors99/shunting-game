@@ -534,7 +534,12 @@ func _on_track_entry_tapped(track_index: int) -> void:
 	wagon.stop_blocking()
 	queue.unblock()
 	var slot: int = station.reserve_slot(track_index)
-	var path := Layout.get_track_path_from_center(track_index, slot)
+	# Вагон зупинився трохи до центру — стартуємо з поточної позиції,
+	# щоб анімація плавно пройшла решту дуги перед розподільчою рейкою.
+	var base_path := Layout.get_track_path_from_center(track_index, slot)
+	var path := PackedVector2Array()
+	path.append(wagon.position)
+	path.append_array(base_path)
 	_animate_along_path(wagon, path, func():
 		wagon.rotation = 0.0
 		station.place_wagon(wagon, track_index, slot)

@@ -156,9 +156,10 @@ func _move_wagons(delta: float) -> void:
 	for i in range(start_idx, _wagons.size()):
 		_wagon_dists[i] -= step
 
-	# wagon[0] не може проїхати повз центр (d=0) якщо не заблокований
-	if not _blocked and not _wagons.is_empty() and _wagon_dists[0] < 0.0:
-		_wagon_dists[0] = 0.0
+	# wagon[0] зупиняється на пів-вагона до центру (d = WAGON_GAP/2)
+	const FRONT_STOP := Layout.WAGON_GAP * 0.5
+	if not _blocked and not _wagons.is_empty() and _wagon_dists[0] < FRONT_STOP:
+		_wagon_dists[0] = FRONT_STOP
 
 	# Дотримання мінімальної відстані між вагонами
 	for i in range(1, _wagons.size()):
@@ -183,7 +184,8 @@ func _rotation_at_dist(d: float) -> float:
 
 
 func _check_front_wagon() -> void:
-	if _wagons.is_empty() or _wagon_dists[0] > 0.0:
+	const FRONT_STOP := Layout.WAGON_GAP * 0.5
+	if _wagons.is_empty() or _wagon_dists[0] > FRONT_STOP:
 		return
 	_blocked = true
 	wagon_at_center.emit(_wagons[0])
