@@ -534,7 +534,12 @@ func _on_track_entry_tapped(track_index: int) -> void:
 	wagon.stop_blocking()
 	queue.unblock()
 	var slot: int = station.reserve_slot(track_index)
-	var path := Layout.get_track_path_from_center(track_index, slot)
+	# Вагон зупинився трохи до центру — стартуємо з поточної позиції,
+	# щоб анімація плавно пройшла решту дуги перед розподільчою рейкою.
+	var base_path := Layout.get_track_path_from_center(track_index, slot)
+	var path := PackedVector2Array()
+	path.append(wagon.position)
+	path.append_array(base_path)
 	_animate_along_path(wagon, path, func():
 		wagon.rotation = 0.0
 		station.place_wagon(wagon, track_index, slot)
@@ -567,6 +572,7 @@ func _animate_along_path(wagon: Wagon, path: PackedVector2Array, on_done: Callab
 	tween.tween_callback(on_done)
 
 func _on_track_exit_tapped(track_index: int) -> void:
+	station.flash_track_green(track_index, station.get_wagon_count(track_index) * 0.5)
 	if not loco_depot.use_locomotive():
 		return
 	var wagons: Array = station.pop_all_wagons(track_index)
@@ -578,6 +584,7 @@ func _on_track_exit_tapped(track_index: int) -> void:
 		_animate_exit(wagons, track_index)
 
 func _on_track_exit_choice(track_index: int, submit: bool) -> void:
+	station.flash_track_green(track_index, station.get_wagon_count(track_index) * 0.5)
 	if not loco_depot.use_locomotive():
 		return
 	var wagons: Array = station.pop_all_wagons(track_index)
@@ -678,44 +685,54 @@ func _animate_to_repair(wagons: Array) -> void:
 
 func _on_loading_completed(wagons: Array) -> void:
 	queue.set_returning(true)
-	var ret_x       := Layout.get_loading_return_x()
-	var ret_arc     := Layout.get_loading_return_arc()
-	var exit_arc    := Layout.get_exit_arc()
-	var base_tail_x := queue.get_tail_x() + Layout.WAGON_GAP
+	var ret_x    := Layout.get_loading_return_x()
+	var ret_arc  := Layout.get_loading_return_arc()
+	var exit_arc := Layout.get_exit_arc()
+	var exit_end := exit_arc[exit_arc.size() - 1]  # (1620, 1039)
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
 		wagon.become_loaded()
 		wagon.position = Vector2(ret_x, -Layout.WAGON_GAP)
+		var is_last := (i == wagons.size() - 1)
+		# Фаза 1: фіксована геометрія (від дроп-зони через дугу до рівня черги)
 		var pts := PackedVector2Array()
 		pts.append(wagon.position)
-		pts.append_array(ret_arc)                    # → (1620, 575) вправо
-		pts.append_array(exit_arc.slice(2))          # крок 3+: дуга→вертикаль→дуга→QUEUE_Y
-		pts.append(Vector2(base_tail_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y))
-		var is_last := (i == wagons.size() - 1)
+		pts.append_array(ret_arc)
+		pts.append_array(exit_arc.slice(2))
 		_animate_delayed(wagon, pts, i * WAGON_RETURN_DELAY, func():
-			wagon.rotation = PI
-			queue.receive_wagon(wagon)
-			if is_last:
-				queue.set_returning(false)
+			# Фаза 2: обчислюємо поточний хвіст черги прямо зараз, щоб уникнути стрибка
+			var dest_x := queue.get_tail_x() + Layout.WAGON_GAP
+			_animate_along_path(wagon,
+				PackedVector2Array([exit_end, Vector2(dest_x, Layout.QUEUE_Y)]),
+				func():
+					wagon.rotation = PI
+					queue.receive_wagon(wagon)
+					if is_last: queue.set_returning(false)
+			)
 		)
 
 func _on_repair_completed(wagons: Array) -> void:
 	queue.set_returning(true)
-	var arc         := Layout.get_repair_exit_arc()
-	var base_tail_x := queue.get_tail_x() + Layout.WAGON_GAP
+	var arc      := Layout.get_repair_exit_arc()
+	var arc_end  := arc[arc.size() - 1]  # (1361, 1039)
 	for i in wagons.size():
 		var wagon: Wagon = wagons[i]
 		wagon.repair()
-		var pts := PackedVector2Array()
-		pts.append(wagon.position)
-		pts.append_array(arc)
-		pts.append(Vector2(base_tail_x + i * Layout.WAGON_GAP, Layout.QUEUE_Y))
 		var is_last := (i == wagons.size() - 1)
-		_animate_delayed(wagon, pts, i * WAGON_RETURN_DELAY, func():
-			wagon.rotation = PI
-			queue.receive_wagon(wagon)
-			if is_last:
-				queue.set_returning(false)
+		# Фаза 1: фіксована геометрія (дуга виходу з ремонтного депо)
+		var arc_pts := PackedVector2Array()
+		arc_pts.append(wagon.position)
+		arc_pts.append_array(arc)
+		_animate_delayed(wagon, arc_pts, i * WAGON_RETURN_DELAY, func():
+			# Фаза 2: обчислюємо поточний хвіст черги прямо зараз, щоб уникнути стрибка
+			var dest_x := queue.get_tail_x() + Layout.WAGON_GAP
+			_animate_along_path(wagon,
+				PackedVector2Array([arc_end, Vector2(dest_x, Layout.QUEUE_Y)]),
+				func():
+					wagon.rotation = PI
+					queue.receive_wagon(wagon)
+					if is_last: queue.set_returning(false)
+			)
 		)
 
 # ─────────────────────────────────────────────
