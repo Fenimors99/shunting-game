@@ -138,7 +138,7 @@ func _draw() -> void:
 		# Галочка (статичні рівні)
 		if done and LevelConfig.current_level != 0:
 			draw_string(font, Vector2(PANEL_W - 32, y + CARD_PAD + FONT_LBL),
-				"✓", HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_LBL,
+				"v", HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_LBL,
 				Color(0.30, 0.92, 0.48, alpha))
 
 		# Кружки вагонів

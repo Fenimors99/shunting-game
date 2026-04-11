@@ -814,7 +814,7 @@ func _show_tutorial() -> void:
 	panel.add_child(title_lbl)
 
 	var close_btn := Button.new()
-	close_btn.text = "✕"
+	close_btn.text = "X"
 	close_btn.custom_minimum_size = Vector2(44, 44)
 	close_btn.position = Vector2(PW - 58, 14)
 	close_btn.flat = true
