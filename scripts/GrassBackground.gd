@@ -47,8 +47,13 @@ func generate() -> void:
 	# Масштабирование 128 -> 16, то есть делим на 8
 	var scale_factor := float(tile_size) / 128.0
 
-	for y in range(map_height):
-		for x in range(map_width):
+	# Считаем количество тайлов по реальному размеру окна + запас в 2 тайла
+	var vp := get_viewport_rect().size
+	var cols := int(ceil(vp.x / float(tile_size))) + 2
+	var rows := int(ceil(vp.y / float(tile_size))) + 2
+
+	for y in range(rows):
+		for x in range(cols):
 			var sprite := Sprite2D.new()
 			sprite.texture = _pick_tile()
 			sprite.centered = false
